@@ -1,6 +1,9 @@
+### Importation de données
+
+from pathlib import Path
 import pandas as pd
 
-def load_data(path: str, sample: bool = False, sample_size: int = 500000):
+def load_data(path, sample: bool = False, sample_size: int = 200000):
     """
     Charge le dataset PaySim depuis CSV ou Excel.
     
@@ -13,18 +16,23 @@ def load_data(path: str, sample: bool = False, sample_size: int = 500000):
     Returns:
         DataFrame pandas
     """
+    
+    path = Path(path)
+    
+    
     # détection de l'extension
-    ext = path.split('.')[-1].lower()
+    ext = path.suffix.lower().replace('.', '')
     
     if ext == 'csv':
         reader = pd.read_csv
         kwargs = {'sep': ';', 'encoding': 'utf-8'}
     elif ext in ['xlsx', 'xls']:
         reader = pd.read_excel
-        kwargs = {}  # pas de sep ni encoding pour Excel
+        kwargs = {}
     else:
         raise ValueError("Format non supporté. Utilisez CSV ou Excel.")
 
     if sample:
         return reader(path, nrows=sample_size, **kwargs)
+
     return reader(path, **kwargs)
