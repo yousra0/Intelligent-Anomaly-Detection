@@ -4,7 +4,7 @@
     "sample_size": 200000,
     "sampling_method": "stratified_split",
     "random_state": 42,
-    "n_columns": 19
+    "n_columns": 18
   },
   "class_distribution": {
     "fraud_count": 218,
