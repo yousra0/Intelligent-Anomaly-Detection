@@ -3,7 +3,23 @@
 from pathlib import Path
 import pandas as pd
 
-def load_data(path, sample: bool = False, sample_size: int = 200000):
+
+def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
+    """Read CSV while handling common delimiters (, ; \t)."""
+    # Fast path: standard comma-separated CSV (PaySim default)
+    df = pd.read_csv(path, encoding="utf-8")
+
+    # If parsing produced a single merged column, retry with alternate delimiters.
+    if len(df.columns) == 1:
+        first_col = str(df.columns[0])
+        if ";" in first_col:
+            df = pd.read_csv(path, sep=";", encoding="utf-8")
+        elif "\t" in first_col:
+            df = pd.read_csv(path, sep="\t", encoding="utf-8")
+
+    return df
+
+def load_data(path, sample: bool = False):
     """
     Charge le dataset PaySim depuis CSV ou Excel.
     
@@ -24,8 +40,8 @@ def load_data(path, sample: bool = False, sample_size: int = 200000):
     ext = path.suffix.lower().replace('.', '')
     
     if ext == 'csv':
-        reader = pd.read_csv
-        kwargs = {'sep': ';', 'encoding': 'utf-8'}
+        reader = _read_csv_with_fallback
+        kwargs = {}
     elif ext in ['xlsx', 'xls']:
         reader = pd.read_excel
         kwargs = {}
@@ -33,6 +49,6 @@ def load_data(path, sample: bool = False, sample_size: int = 200000):
         raise ValueError("Format non supporté. Utilisez CSV ou Excel.")
 
     if sample:
-        return reader(path, nrows=sample_size, **kwargs)
+        return reader(path, **kwargs)
 
     return reader(path, **kwargs)

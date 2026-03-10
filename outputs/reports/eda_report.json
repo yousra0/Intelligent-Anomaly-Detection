@@ -7,37 +7,37 @@
     "n_columns": 18
   },
   "class_distribution": {
-    "fraud_count": 218,
-    "non_fraud_count": 199782,
-    "fraud_rate_pct": 0.109,
-    "imbalance_ratio": 916.4
+    "fraud_count": 258,
+    "non_fraud_count": 199742,
+    "fraud_rate_pct": 0.129,
+    "imbalance_ratio": 774.2
   },
   "baseline_flagged_fraud": {
-    "tp": 0,
-    "fn": 218,
+    "tp": 1,
+    "fn": 257,
     "fp": 0,
-    "recall": 0.0,
-    "precision": 0.0,
-    "f1": 0.0
+    "recall": 0.003876,
+    "precision": 1.0,
+    "f1": 0.007722
   },
   "fraud_by_type": {
     "total": {
-      "TRANSFER": 16479,
-      "CASH_OUT": 71095,
-      "CASH_IN": 43401,
-      "DEBIT": 1364,
-      "PAYMENT": 67661
+      "TRANSFER": 16915,
+      "CASH_OUT": 70282,
+      "CASH_IN": 43677,
+      "DEBIT": 1305,
+      "PAYMENT": 67821
     },
     "nb_fraudes": {
-      "TRANSFER": 112,
-      "CASH_OUT": 106,
+      "TRANSFER": 131,
+      "CASH_OUT": 127,
       "CASH_IN": 0,
       "DEBIT": 0,
       "PAYMENT": 0
     },
     "taux_fraude_pct": {
-      "TRANSFER": 0.6797,
-      "CASH_OUT": 0.1491,
+      "TRANSFER": 0.7745,
+      "CASH_OUT": 0.1807,
       "CASH_IN": 0.0,
       "DEBIT": 0.0,
       "PAYMENT": 0.0
@@ -55,15 +55,13 @@
       7,
       8,
       9,
-      21,
-      22,
       23
     ],
-    "fraud_rate_high_risk_pct": 0.292615,
-    "fraud_rate_normal_pct": 0.06458
+    "fraud_rate_high_risk_pct": 0.731091,
+    "fraud_rate_normal_pct": 0.068754
   },
   "network_analysis": {
-    "n_fraud_dest_accounts": 217,
+    "n_fraud_dest_accounts": 258,
     "n_dest_also_cashout": 0,
     "pct_dest_also_cashout": 0.0
   },
@@ -91,6 +89,6 @@
       "PR-AUC"
     ],
     "avoid": "Accuracy (trompeuse avec déséquilibre 1:1359)",
-    "dl_target_recall_min": 0.0
+    "dl_target_recall_min": 0.0039
   }
 }
