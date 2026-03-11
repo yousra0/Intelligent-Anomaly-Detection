@@ -1,0 +1,67 @@
+{
+  "all_features": [
+    "step",
+    "hour",
+    "day",
+    "week",
+    "high_risk_hour",
+    "is_transfer_or_cashout",
+    "balance_diff_orig",
+    "dest_zero_balance",
+    "type_CASH_IN",
+    "type_CASH_OUT",
+    "type_DEBIT",
+    "type_PAYMENT",
+    "type_TRANSFER",
+    "log_amount"
+  ],
+  "scale_cols": [
+    "step",
+    "hour",
+    "day",
+    "week",
+    "log_amount",
+    "balance_diff_orig"
+  ],
+  "binary_cols": [
+    "high_risk_hour",
+    "is_transfer_or_cashout",
+    "dest_zero_balance"
+  ],
+  "type_cols": [
+    "type_CASH_IN",
+    "type_CASH_OUT",
+    "type_DEBIT",
+    "type_PAYMENT",
+    "type_TRANSFER"
+  ],
+  "target": "isFraud",
+  "n_features": 14,
+  "high_risk_hours": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    23
+  ],
+  "sample_size": 200000,
+  "random_state": 42,
+  "split_ratios": {
+    "train": 0.7,
+    "val": 0.15,
+    "test": 0.15
+  },
+  "n_train_fraud": 181,
+  "n_val_fraud": 38,
+  "n_test_fraud": 39,
+  "imbalance_ratio": 772,
+  "fraud_rate_train_pct": 0.129287,
+  "smote_ratio": 0.1,
+  "n_smote_fraud": 13981
+}
