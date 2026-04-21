@@ -1,304 +1,401 @@
 """
-prep_plots.py
-=============
-Visualisations produites dans ``02_data_preparation.ipynb``.
+model_plots.py
+==============
+Visualisations pour ``03_baseline_models.ipynb``.
 
 Figures générées :
-  08_log_transform.png   : distribution amount avant/après log1p
-  09_split.png           : taille et taux de fraude par split
-  10_scaling.png         : effet du StandardScaler sur les 6 colonnes continues
-  11_smote.png           : distribution des classes avant/après SMOTE
+  12_pr_curves.png          : courbes Precision-Recall des 4 modèles
+  13_roc_curves.png         : courbes ROC
+  14_confusion_matrices.png : matrices de confusion (2×2)
+  15_feature_importances.png: importances RF (top 14)
+  16_threshold_analysis.png : Recall/Precision vs seuil pour chaque modèle
+  17_model_comparison.png   : tableau récapitulatif des métriques
 """
 
 from __future__ import annotations
 
 from pathlib import Path
+import sys
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
+from sklearn.metrics import precision_recall_curve, roc_curve, auc
+
+try:
+    from src.utils.baseline_config import load_baseline_metrics
+except ModuleNotFoundError:
+    # Allow running this file directly: python src/visualization/prep_plots.py
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from src.utils.baseline_config import load_baseline_metrics
 
 plt.rcParams["mathtext.fontset"] = "dejavusans"
 
-# Palette cohérente avec le notebook 01
-COLORS = {
-    "train":     "#2196F3",
-    "val":       "#4CAF50",
-    "test":      "#FF9800",
-    "normal":    "#78909C",
-    "fraud":     "#F44336",
-    "before":    "#78909C",
-    "after":     "#2196F3",
+# Palette cohérente pour les 4 modèles baseline
+MODEL_COLORS = {
+    "LR_balanced":    "#2196F3",   # bleu
+    "LR_smote":       "#64B5F6",   # bleu clair
+    "RF_balanced":    "#F44336",   # rouge
+    "RF_smote":       "#EF9A9A",   # rouge clair
+    "baseline":       "#9E9E9E",   # gris — règle métier isFlaggedFraud
 }
 
+# Ligne de référence baseline (chargée depuis outputs/reports si disponible)
+_BASELINE = load_baseline_metrics(report_path=None)
+BASELINE_RECALL = _BASELINE["recall"]
+BASELINE_PRECISION = _BASELINE["precision"]
+BASELINE_F1 = _BASELINE["f1"]
+
 
 # ---------------------------------------------------------------------------
-# Figure 08 — Transformation log1p
+# Figure 12 — Courbes Precision-Recall
 # ---------------------------------------------------------------------------
 
-def plot_log_transform(
-    amount_raw: pd.Series,
-    log_amount: pd.Series,
-    skew_before: float,
-    skew_after: float,
+def plot_pr_curves(
+    models_scores: dict[str, tuple[np.ndarray, np.ndarray]],
     save_path: Path | None = None,
 ) -> plt.Figure:
     """
-    Deux histogrammes : distribution brute vs log1p.
+    Courbes Precision-Recall pour plusieurs modèles.
 
     Args:
-        amount_raw:   Série ``amount`` originale (avant log1p).
-        log_amount:   Série ``log_amount`` transformée.
-        skew_before:  Skewness avant (EDA : 30.80).
-        skew_after:   Skewness après.
-        save_path:    Chemin de sauvegarde (None = pas de sauvegarde).
+        models_scores: {nom_modele: (y_true, y_score)}
+        save_path:     Chemin de sauvegarde.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+    fig, ax = plt.subplots(figsize=(9, 6))
 
-    axes[0].hist(amount_raw,  bins=60, color=COLORS["before"], edgecolor="white", alpha=0.85)
-    axes[0].set_title(f"amount brut  (skew = {skew_before:.1f})")
-    axes[0].set_xlabel("Montant")
-    axes[0].set_ylabel("Fréquence")
-    axes[0].xaxis.set_major_formatter(
-        mticker.FuncFormatter(lambda x, _: f"{x/1e6:.0f}M" if x >= 1e6 else f"{x:,.0f}")
+    for name, (y_true, y_score) in models_scores.items():
+        prec, rec, _ = precision_recall_curve(y_true, y_score)
+        pr_auc = auc(rec, prec)
+        color  = MODEL_COLORS.get(name, "#607D8B")
+        ax.plot(rec, prec, lw=2, color=color,
+                label=f"{name}  (PR-AUC={pr_auc:.4f})")
+
+    # Point baseline isFlaggedFraud
+    ax.scatter(
+        BASELINE_RECALL, BASELINE_PRECISION,
+        marker="*", s=200, color=MODEL_COLORS["baseline"], zorder=5,
+        label=f"Baseline isFlaggedFraud  (R={BASELINE_RECALL}, P={BASELINE_PRECISION})",
     )
 
-    axes[1].hist(log_amount, bins=60, color=COLORS["after"],  edgecolor="white", alpha=0.85)
-    axes[1].set_title(f"log_amount  (skew = {skew_after:.2f})")
-    axes[1].set_xlabel("log(1 + montant)")
-    axes[1].set_ylabel("Fréquence")
+    # Ligne de chance (taux de fraude global)
+    if models_scores:
+        y_true_any = next(iter(models_scores.values()))[0]
+        fraud_rate = y_true_any.mean()
+        ax.axhline(fraud_rate, color="#BDBDBD", linestyle="--", lw=1,
+                   label=f"Chance ({fraud_rate:.4f})")
 
-    plt.suptitle("Transformation log1p — amount", fontsize=13, fontweight="bold")
-    plt.tight_layout()
-
-    if save_path is not None:
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"Figure sauvegardée : {Path(save_path).name}")
-
-    return fig
-
-
-# ---------------------------------------------------------------------------
-# Figure 09 — Split Train / Val / Test
-# ---------------------------------------------------------------------------
-
-def plot_split(
-    sizes: list[int],
-    frauds: list[int],
-    global_fraud_rate: float,
-    save_path: Path | None = None,
-) -> plt.Figure:
-    """
-    Deux barplots : taille des splits + taux de fraude par split.
-
-    Args:
-        sizes:             [n_train, n_val, n_test]
-        frauds:            [n_fraud_train, n_fraud_val, n_fraud_test]
-        global_fraud_rate: Taux global de fraude (float entre 0 et 1).
-        save_path:         Chemin de sauvegarde.
-    """
-    names  = ["Train", "Val", "Test"]
-    colors = [COLORS["train"], COLORS["val"], COLORS["test"]]
-    rates  = [f / s * 100 for f, s in zip(frauds, sizes)]
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-
-    # Taille des splits
-    axes[0].bar(names, sizes, color=colors, edgecolor="white")
-    axes[0].set_title("Taille des splits")
-    axes[0].set_ylabel("Transactions")
-    axes[0].yaxis.set_major_formatter(
-        mticker.FuncFormatter(lambda x, _: f"{int(x):,}")
-    )
-    for i, s in enumerate(sizes):
-        axes[0].text(i, s + max(sizes) * 0.01, f"{s:,}",
-                     ha="center", fontsize=9, fontweight="bold")
-
-    # Taux de fraude
-    axes[1].bar(names, rates, color=colors, edgecolor="white")
-    axes[1].axhline(
-        global_fraud_rate * 100, color="red", linestyle="--", lw=1.2,
-        label=f"Taux global ({global_fraud_rate*100:.4f}%)",
-    )
-    axes[1].set_title("Taux de fraude par split (stratification)")
-    axes[1].set_ylabel("Taux fraude (%)")
-    axes[1].legend(fontsize=9)
-    for i, (f, r) in enumerate(zip(frauds, rates)):
-        axes[1].text(i, r + max(rates) * 0.05, f"{f} fraudes",
-                     ha="center", fontsize=9)
-
-    plt.suptitle("Split Train / Val / Test — stratifié sur isFraud",
+    ax.set_xlabel("Recall", fontsize=11)
+    ax.set_ylabel("Precision", fontsize=11)
+    ax.set_title("Courbes Precision-Recall — Modèles Baseline",
                  fontsize=13, fontweight="bold")
-    plt.tight_layout()
+    ax.legend(fontsize=9, loc="upper right")
+    ax.set_xlim([0, 1.02])
+    ax.set_ylim([0, 1.05])
+    ax.grid(alpha=0.3)
 
-    if save_path is not None:
+    plt.tight_layout()
+    if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure sauvegardée : {Path(save_path).name}")
-
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Figure 10 — Effet du StandardScaler
+# Figure 13 — Courbes ROC
 # ---------------------------------------------------------------------------
 
-def plot_scaling_effect(
-    X_before: pd.DataFrame,
-    X_after: pd.DataFrame,
-    scale_cols: list[str],
+def plot_roc_curves(
+    models_scores: dict[str, tuple[np.ndarray, np.ndarray]],
     save_path: Path | None = None,
 ) -> plt.Figure:
     """
-    Grille 2×3 : histogrammes avant/après StandardScaler pour chaque
-    colonne continue (6 colonnes = SCALE_COLS).
+    Courbes ROC. Moins prioritaires que PR sous fort déséquilibre,
+    mais utiles pour comparer globalement les modèles.
+    """
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    for name, (y_true, y_score) in models_scores.items():
+        fpr, tpr, _ = roc_curve(y_true, y_score)
+        roc_auc = auc(fpr, tpr)
+        color   = MODEL_COLORS.get(name, "#607D8B")
+        ax.plot(fpr, tpr, lw=2, color=color,
+                label=f"{name}  (AUC={roc_auc:.4f})")
+
+    ax.plot([0, 1], [0, 1], "k--", lw=1, label="Chance (AUC=0.50)")
+    ax.set_xlabel("Taux Faux Positifs (FPR)", fontsize=11)
+    ax.set_ylabel("Taux Vrais Positifs (TPR / Recall)", fontsize=11)
+    ax.set_title("Courbes ROC — Modèles Baseline",
+                 fontsize=13, fontweight="bold")
+    ax.legend(fontsize=9, loc="lower right")
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure sauvegardée : {Path(save_path).name}")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Figure 14 — Matrices de confusion
+# ---------------------------------------------------------------------------
+
+def plot_confusion_matrices(
+    models_cm: dict[str, dict],
+    save_path: Path | None = None,
+) -> plt.Figure:
+    """
+    Grille de matrices de confusion (une par modèle).
 
     Args:
-        X_before:    DataFrame non scalé (X_train).
-        X_after:     DataFrame scalé (X_train_sc).
-        scale_cols:  Liste des 6 colonnes continues.
-        save_path:   Chemin de sauvegarde.
+        models_cm: {nom_modele: metrics_dict}
+                   metrics_dict doit contenir tp, fp, fn, tn.
+        save_path: Chemin de sauvegarde.
     """
-    n = len(scale_cols)
-    ncols = 3
+    n = len(models_cm)
+    ncols = min(n, 2)
     nrows = (n + ncols - 1) // ncols
 
-    fig, axes = plt.subplots(nrows, ncols, figsize=(15, 5 * nrows))
-    axes = axes.flatten()
+    fig, axes = plt.subplots(nrows, ncols,
+                             figsize=(6 * ncols, 5 * nrows))
+    if n == 1:
+        axes = np.array([[axes]])
+    elif nrows == 1:
+        axes = axes.reshape(1, -1)
 
-    for i, col in enumerate(scale_cols):
-        axes[i].hist(X_before[col], bins=50, alpha=0.5,
-                     color=COLORS["before"], label="Avant")
-        axes[i].hist(X_after[col],  bins=50, alpha=0.6,
-                     color=COLORS["after"],  label="Après")
-        axes[i].set_title(col)
-        axes[i].legend(fontsize=8)
-        axes[i].set_ylabel("Fréquence")
+    for idx, (name, m) in enumerate(models_cm.items()):
+        r, c = divmod(idx, ncols)
+        ax   = axes[r][c]
 
-    # Masquer les axes vides
-    for j in range(n, len(axes)):
-        axes[j].set_visible(False)
+        tp, fp = m["tp"], m["fp"]
+        fn, tn = m["fn"], m["tn"]
+        cm_arr = np.array([[tn, fp], [fn, tp]])
 
-    plt.suptitle("Effet du StandardScaler sur X_train",
-                 fontsize=13, fontweight="bold")
+        im = ax.imshow(cm_arr, interpolation="nearest", cmap="Blues")
+        ax.set_title(f"{name}\nRecall={m['recall']:.4f}  F1={m['f1']:.4f}",
+                     fontsize=10, fontweight="bold")
+
+        labels = [["TN", "FP"], ["FN", "TP"]]
+        for i in range(2):
+            for j in range(2):
+                val = cm_arr[i, j]
+                color = "white" if val > cm_arr.max() * 0.6 else "black"
+                ax.text(j, i, f"{labels[i][j]}\n{val:,}",
+                        ha="center", va="center",
+                        fontsize=11, fontweight="bold", color=color)
+
+        ax.set_xticks([0, 1])
+        ax.set_xticklabels(["Prédit 0\n(Non-fraude)", "Prédit 1\n(Fraude)"])
+        ax.set_yticks([0, 1])
+        ax.set_yticklabels(["Réel 0\n(Non-fraude)", "Réel 1\n(Fraude)"])
+        plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    # Masquer axes vides
+    for idx in range(n, nrows * ncols):
+        r, c = divmod(idx, ncols)
+        axes[r][c].set_visible(False)
+
+    plt.suptitle("Matrices de Confusion — Modèles Baseline (Test set)",
+                 fontsize=13, fontweight="bold", y=1.01)
     plt.tight_layout()
 
-    if save_path is not None:
+    if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure sauvegardée : {Path(save_path).name}")
-
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Figure 11 — Effet du SMOTE
+# Figure 15 — Feature Importances (RF)
 # ---------------------------------------------------------------------------
 
-def plot_smote_effect(
-    n_normal_before: int,
-    n_fraud_before: int,
-    n_normal_after: int,
-    n_fraud_after: int,
+def plot_feature_importances(
+    importances_df: pd.DataFrame,
+    model_name: str = "Random Forest",
+    top_n: int = 14,
     save_path: Path | None = None,
 ) -> plt.Figure:
     """
-    Deux barplots en échelle log : distribution classes avant/après SMOTE.
+    Barplot horizontal des feature importances.
 
     Args:
-        n_normal_before: Non-fraudes dans train original.
-        n_fraud_before:  Fraudes dans train original.
-        n_normal_after:  Non-fraudes après SMOTE.
-        n_fraud_after:   Fraudes après SMOTE (réelles + synthétiques).
-        save_path:       Chemin de sauvegarde.
+        importances_df: DataFrame avec colonnes 'feature' et 'importance'.
+        model_name:     Nom du modèle pour le titre.
+        top_n:          Nombre de features à afficher.
+        save_path:      Chemin de sauvegarde.
     """
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    df = importances_df.head(top_n).copy()
 
-    datasets = [
-        (axes[0], [n_normal_before, n_fraud_before],
-         f"Avant SMOTE  (1 : {n_normal_before // n_fraud_before})"),
-        (axes[1], [n_normal_after,  n_fraud_after],
-         f"Après SMOTE  (1 : {int(n_normal_after / n_fraud_after)})"),
-    ]
+    # Coloration : rouge si corrélation > 0.10 (features fortes de l'EDA)
+    strong = {"balance_diff_orig", "dest_zero_balance", "log_amount"}
+    colors = ["#F44336" if f in strong else "#2196F3"
+              for f in df["feature"]]
 
-    for ax, counts, title in datasets:
-        ax.bar(
-            ["Non-fraude", "Fraude"], counts,
-            color=[COLORS["train"], COLORS["fraud"]], edgecolor="white",
-        )
-        ax.set_yscale("log")
-        ax.set_title(title)
-        ax.set_ylabel("Nombre (log)")
-        for i, v in enumerate(counts):
-            ax.text(i, v * 1.5, f"{v:,}", ha="center",
-                    fontweight="bold", fontsize=10)
-
-    plt.suptitle(
-        "Effet de SMOTE — train uniquement (val/test inchangés)",
-        fontsize=13, fontweight="bold",
+    fig, ax = plt.subplots(figsize=(9, 6))
+    bars = ax.barh(
+        df["feature"][::-1], df["importance"][::-1],
+        color=colors[::-1], edgecolor="white",
     )
-    plt.tight_layout()
+    ax.set_xlabel("Importance (Gini)", fontsize=11)
+    ax.set_title(f"Feature Importances — {model_name}",
+                 fontsize=13, fontweight="bold")
 
-    if save_path is not None:
+    for bar, val in zip(bars, df["importance"][::-1]):
+        ax.text(bar.get_width() + 0.001, bar.get_y() + bar.get_height() / 2,
+                f"{val:.4f}", va="center", fontsize=8)
+
+    # Légende couleurs
+    from matplotlib.patches import Patch
+    legend_elements = [
+        Patch(facecolor="#F44336", label="Signal fort (EDA corr > 0.10)"),
+        Patch(facecolor="#2196F3", label="Autres features"),
+    ]
+    ax.legend(handles=legend_elements, fontsize=9, loc="lower right")
+    ax.grid(axis="x", alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
         fig.savefig(save_path, dpi=150, bbox_inches="tight")
         print(f"Figure sauvegardée : {Path(save_path).name}")
-
     return fig
 
 
 # ---------------------------------------------------------------------------
-# Convenience : générer toutes les figures du notebook 02
+# Figure 16 — Analyse du seuil de décision
 # ---------------------------------------------------------------------------
 
-def plot_all_preparation_figures(
-    amount_raw: pd.Series,
-    log_amount: pd.Series,
-    skew_before: float,
-    skew_after: float,
-    split_sizes: list[int],
-    split_frauds: list[int],
-    global_fraud_rate: float,
-    X_train_before: pd.DataFrame,
-    X_train_after: pd.DataFrame,
-    scale_cols: list[str],
-    n_normal_before: int,
-    n_fraud_before: int,
-    n_normal_after: int,
-    n_fraud_after: int,
-    figures_dir: Path,
-) -> None:
+def plot_threshold_analysis(
+    models_scores: dict[str, tuple[np.ndarray, np.ndarray]],
+    save_path: Path | None = None,
+) -> plt.Figure:
     """
-    Génère et sauvegarde les 4 figures de ``02_data_preparation.ipynb``.
-
-    Nommage des fichiers conforme au notebook :
-        08_log_transform.png
-        09_split.png
-        10_scaling.png
-        11_smote.png
+    Recall, Precision et F1 en fonction du seuil de décision.
+    Aide à choisir le seuil optimal pour chaque modèle.
     """
-    figures_dir = Path(figures_dir)
-    figures_dir.mkdir(parents=True, exist_ok=True)
+    n = len(models_scores)
+    ncols = min(n, 2)
+    nrows = (n + ncols - 1) // ncols
 
-    plot_log_transform(
-        amount_raw, log_amount, skew_before, skew_after,
-        save_path=figures_dir / "08_log_transform.png",
-    )
-    plt.close("all")
+    fig, axes = plt.subplots(nrows, ncols,
+                             figsize=(8 * ncols, 5 * nrows))
+    if n == 1:
+        axes = np.array([[axes]])
+    elif nrows == 1:
+        axes = axes.reshape(1, -1)
 
-    plot_split(
-        split_sizes, split_frauds, global_fraud_rate,
-        save_path=figures_dir / "09_split.png",
-    )
-    plt.close("all")
+    for idx, (name, (y_true, y_score)) in enumerate(models_scores.items()):
+        r, c  = divmod(idx, ncols)
+        ax    = axes[r][c]
+        color = MODEL_COLORS.get(name, "#607D8B")
 
-    plot_scaling_effect(
-        X_train_before, X_train_after, scale_cols,
-        save_path=figures_dir / "10_scaling.png",
-    )
-    plt.close("all")
+        thresholds = np.linspace(0.01, 0.99, 200)
+        recalls, precisions, f1s = [], [], []
 
-    plot_smote_effect(
-        n_normal_before, n_fraud_before,
-        n_normal_after,  n_fraud_after,
-        save_path=figures_dir / "11_smote.png",
-    )
-    plt.close("all")
+        for t in thresholds:
+            y_pred = (y_score >= t).astype(int)
+            tp = int(((y_pred == 1) & (y_true == 1)).sum())
+            fp = int(((y_pred == 1) & (y_true == 0)).sum())
+            fn = int(((y_pred == 0) & (y_true == 1)).sum())
+            rec  = tp / (tp + fn) if (tp + fn) > 0 else 0
+            prec = tp / (tp + fp) if (tp + fp) > 0 else 0
+            f1   = (2 * prec * rec / (prec + rec)
+                    if (prec + rec) > 0 else 0)
+            recalls.append(rec)
+            precisions.append(prec)
+            f1s.append(f1)
+
+        ax.plot(thresholds, recalls,    color="#F44336", lw=2, label="Recall")
+        ax.plot(thresholds, precisions, color="#2196F3", lw=2, label="Precision")
+        ax.plot(thresholds, f1s,        color="#4CAF50", lw=2, label="F1")
+
+        # Seuil optimal F1
+        best_idx = int(np.argmax(f1s))
+        ax.axvline(thresholds[best_idx], color="#4CAF50",
+                   linestyle="--", lw=1.2,
+                   label=f"Seuil opt. F1={f1s[best_idx]:.3f}  (t={thresholds[best_idx]:.2f})")
+
+        ax.set_xlabel("Seuil de décision", fontsize=10)
+        ax.set_ylabel("Score", fontsize=10)
+        ax.set_title(name, fontsize=11, fontweight="bold")
+        ax.legend(fontsize=8)
+        ax.grid(alpha=0.3)
+        ax.set_xlim([0, 1])
+        ax.set_ylim([0, 1.05])
+
+    for idx in range(n, nrows * ncols):
+        r, c = divmod(idx, ncols)
+        axes[r][c].set_visible(False)
+
+    plt.suptitle("Recall / Precision / F1 vs Seuil de décision",
+                 fontsize=13, fontweight="bold")
+    plt.tight_layout()
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure sauvegardée : {Path(save_path).name}")
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Figure 17 — Comparaison récapitulative
+# ---------------------------------------------------------------------------
+
+def plot_model_comparison(
+    metrics_list: list[dict],
+    save_path: Path | None = None,
+) -> plt.Figure:
+    """
+    Barplots groupés : Recall, F1, PR-AUC pour tous les modèles.
+
+    Args:
+        metrics_list: Liste de dicts (sortie de compute_fraud_metrics).
+        save_path:    Chemin de sauvegarde.
+    """
+    df = pd.DataFrame([{
+        "model":    m.get("model", "?"),
+        "Recall":   m.get("recall",   0),
+        "F1":       m.get("f1",       0),
+        "PR-AUC":   m.get("pr_auc",   0) or 0,
+        "ROC-AUC":  m.get("roc_auc",  0) or 0,
+    } for m in metrics_list])
+
+    metrics_to_plot = ["Recall", "F1", "PR-AUC"]
+    x   = np.arange(len(df))
+    w   = 0.25
+    fig, ax = plt.subplots(figsize=(11, 5))
+
+    bar_colors = ["#F44336", "#4CAF50", "#2196F3"]
+    for i, (metric, color) in enumerate(zip(metrics_to_plot, bar_colors)):
+        bars = ax.bar(x + i * w, df[metric], w,
+                      label=metric, color=color, edgecolor="white", alpha=0.85)
+        for bar in bars:
+            h = bar.get_height()
+            if h > 0.001:
+                ax.text(bar.get_x() + bar.get_width() / 2,
+                        h + 0.005, f"{h:.3f}",
+                        ha="center", fontsize=7.5, fontweight="bold")
+
+    # Lignes de référence baseline
+    ax.axhline(BASELINE_RECALL, color="#9E9E9E",
+               linestyle="--", lw=1.2, label=f"Baseline Recall ({BASELINE_RECALL})")
+    ax.axhline(BASELINE_F1, color="#BDBDBD",
+               linestyle=":", lw=1.2, label=f"Baseline F1 ({BASELINE_F1})")
+
+    ax.set_xticks(x + w)
+    ax.set_xticklabels(df["model"], rotation=15, ha="right", fontsize=9)
+    ax.set_ylabel("Score", fontsize=11)
+    ax.set_ylim([0, 1.1])
+    ax.set_title("Comparaison des Modèles Baseline — Test set",
+                 fontsize=13, fontweight="bold")
+    ax.legend(fontsize=9, ncol=2)
+    ax.grid(axis="y", alpha=0.3)
+
+    plt.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches="tight")
+        print(f"Figure sauvegardée : {Path(save_path).name}")
+    return fig

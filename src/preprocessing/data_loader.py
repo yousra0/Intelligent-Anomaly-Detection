@@ -19,14 +19,15 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
 
     return df
 
-def load_data(path, sample: bool = False):
+def load_data(path, sample: bool = False, sample_size: int = 200_000):
+    
     """
     Charge le dataset PaySim depuis CSV ou Excel.
     
 
     Args:
         path: chemin vers le fichier
-        sample: si True, charge un échantillon
+        sample: si True, retourne un échantillon aléatoire
         sample_size: taille de l'échantillon si sample=True
 
     Returns:
@@ -48,7 +49,10 @@ def load_data(path, sample: bool = False):
     else:
         raise ValueError("Format non supporté. Utilisez CSV ou Excel.")
 
-    if sample:
-        return reader(path, **kwargs)
+    df = reader(path, **kwargs)
 
-    return reader(path, **kwargs)
+    if sample:
+        n = min(int(sample_size), len(df))
+        return df.sample(n=n, random_state=42)
+
+    return df

@@ -513,6 +513,8 @@ def save_artifacts(
         "imbalance_ratio": int((data.y_train == 0).sum() / data.y_train.sum()),
         "fraud_rate_train_pct": round(float(data.y_train.mean() * 100), 6),
         "smote_n_fraud": int(data.y_smote.sum()),
+        "X_smote_is_scaled": True,
+        "contamination_rate": float(data.y_train.mean()),
     }
     with open(models_dir / "features.json", "w", encoding="utf-8") as f:
         json.dump(feat_meta, f, indent=2)

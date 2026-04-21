@@ -94,8 +94,8 @@ def compute_fraud_metrics(
 def find_optimal_threshold(
     y_true: np.ndarray | pd.Series,
     y_score: np.ndarray | pd.Series,
-    metric: str = "f1",
-    beta: float = 1.0,
+    metric: str = "fbeta",
+    beta: float = 2.0,
 ) -> tuple[float, float]:
     """
     Trouve le seuil de décision optimal sur la courbe Precision-Recall.
@@ -106,8 +106,8 @@ def find_optimal_threshold(
     Args:
         y_true:  Labels réels.
         y_score: Scores de probabilité de la classe positive.
-        metric:  "f1" ou "fbeta" (utilise beta).
-        beta:    Poids du Recall dans Fbeta (beta=2 → 2× plus important).
+        metric:  "f1" ou "fbeta" (défaut: "fbeta").
+        beta:    Poids du Recall dans Fbeta (défaut: 2.0).
 
     Returns:
         (optimal_threshold, optimal_score)

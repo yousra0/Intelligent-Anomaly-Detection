@@ -19,7 +19,24 @@ Référence EDA :
 
 from __future__ import annotations
 
+from pathlib import Path
+import sys
+
 import pandas as pd
+
+try:
+    from .behavioral_features import add_balance_diff_orig, add_dest_zero_balance
+    from .temporal_features import create_temporal_features
+except ImportError:
+    # Allow running this file directly: python src/feature_engineering/feature_builder.py
+    project_root = Path(__file__).resolve().parents[2]
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from src.feature_engineering.behavioral_features import (
+        add_balance_diff_orig,
+        add_dest_zero_balance,
+    )
+    from src.feature_engineering.temporal_features import create_temporal_features
 
 # ---------------------------------------------------------------------------
 # Constante — heures à risque mesurées empiriquement dans l'EDA (Cell 57)
@@ -41,11 +58,8 @@ def add_temporal_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame avec 3 nouvelles colonnes : hour (0-23), day (0-30), week (0-4).
     """
-    df = df.copy()
-    df["hour"] = df["step"] % 24
-    df["day"]  = df["step"] // 24
-    df["week"] = df["step"] // 168
-    return df
+    # Keep feature set stable for current baseline (hour/day/week only).
+    return create_temporal_features(df, include_is_weekend=False)
 
 
 def add_high_risk_hour(
@@ -87,52 +101,6 @@ def add_transfer_cashout_flag(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df["is_transfer_or_cashout"] = (
         df["type"].isin(["TRANSFER", "CASH_OUT"])
-    ).astype(int)
-    return df
-
-
-def add_balance_diff_orig(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Signal comportemental : oldbalanceOrg - newbalanceOrig.
-
-    Représente le montant effectivement débité du compte source.
-    Dans les fraudes PaySim, le compte est entièrement vidé →
-    valeur élevée et positive.
-
-    Corrélation avec isFraud : 0.3662 (EDA Cell 70 — meilleur signal individuel).
-    Note : peut être négatif pour les CASH_IN (solde augmente).
-
-    Returns:
-        DataFrame avec la colonne ``balance_diff_orig`` ajoutée.
-    """
-    df = df.copy()
-    df["balance_diff_orig"] = df["oldbalanceOrg"] - df["newbalanceOrig"]
-    return df
-
-
-def add_dest_zero_balance(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Feature binaire : compte mule potentiel.
-
-    Condition : destination est un client (préfixe 'C') ET
-                oldbalanceDest == 0 ET newbalanceDest == 0.
-
-    Taux de fraude mesuré dans l'EDA (Cell 64 & 72) :
-        - dest_zero_balance = 1 : 2.52%  (compte client vide)
-        - dest_zero_balance = 0 : 0.07%  (normal)
-        - Corrélation avec isFraud : 0.1088
-
-    Note : les marchands (préfixe 'M') ont toujours balance 0/0 →
-    ils sont correctement exclus par le filtre sur le préfixe 'C'.
-
-    Returns:
-        DataFrame avec la colonne ``dest_zero_balance`` ajoutée.
-    """
-    df = df.copy()
-    df["dest_zero_balance"] = (
-        df["nameDest"].str.startswith("C")
-        & (df["oldbalanceDest"] == 0)
-        & (df["newbalanceDest"] == 0)
     ).astype(int)
     return df
 
