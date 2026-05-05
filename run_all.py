@@ -27,6 +27,8 @@ NOTEBOOKS = [
     ("02", "notebooks/02_data_preparation.ipynb"),
     ("03", "notebooks/03_baseline_models.ipynb"),
     ("04", "notebooks/04_autoencoder.ipynb"),
+    ("05", "notebooks/05_ollama_integration.ipynb"),
+    ("06", "notebooks/06_shap_lime.ipynb"),
 ]
 
 # ── Fichiers src/ à valider + quel(s) notebook(s) les utilise(nt) ─────────────
@@ -35,11 +37,15 @@ SRC_MODULES = [
     ("src.preprocessing.preprocessing",          "NB02"),
     ("src.visualization.prep_plots",            "NB02"),
     ("src.models.ml_models",                    "NB03"),
-    ("src.utils.evaluator",                     "NB03 + NB04"),
+    ("src.utils.evaluator",                     "NB03 + NB04 + NB06"),
     ("src.utils.baseline_config",               "NB03 + NB04"),
     ("src.visualization.model_plots",           "NB03"),
     ("src.models.autoencoder",                  "NB04"),
     ("src.visualization.autoencoder_plots",     "NB04"),
+    ("src.ollama_integration",                  "NB05"),
+    ("src.ollama_integration.ollama_helper",    "NB05"),
+    ("src.explainability.shap_explainer",       "NB06"),
+    ("src.explainability.lime_explainer",       "NB06"),
 ]
 
 def check_src_modules() -> bool:

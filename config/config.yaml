@@ -1,0 +1,80 @@
+# config/config.yaml
+# ============================================================
+# Configuration globale du projet — Détection de Fraudes
+# ============================================================
+
+# ── Données ──────────────────────────────────────────────────
+data:
+  raw_path:       "data/raw/"
+  processed_path: "data/processed/"
+  sample_size:    200000                # Taille de l'échantillon (SAMPLE_SIZE)
+  random_state:   42
+
+# ── Features ─────────────────────────────────────────────────
+features:
+  target:         "isFraud"
+  scale_cols:
+    - "step"
+    - "hour"
+    - "day"
+    - "week"
+    - "log_amount"
+    - "balance_diff_orig"
+  high_risk_hours: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 23]
+  feature_cols:
+    - "step"
+    - "hour"
+    - "day"
+    - "week"
+    - "high_risk_hour"
+    - "is_transfer_or_cashout"
+    - "balance_diff_orig"
+    - "dest_zero_balance"
+    - "type_CASH_IN"
+    - "type_CASH_OUT"
+    - "type_DEBIT"
+    - "type_PAYMENT"
+    - "type_TRANSFER"
+    - "log_amount"
+
+# ── Split ────────────────────────────────────────────────────
+split:
+  train_ratio: 0.70
+  val_ratio:   0.15
+  test_ratio:  0.15
+
+# ── SMOTE ────────────────────────────────────────────────────
+smote:
+  sampling_strategy: 0.1               # ratio fraudes/légitimes cible (1:10)
+  random_state:      42
+
+# ── Modèles ML ───────────────────────────────────────────────
+ml_models:
+  logistic_regression:
+    C:        0.1
+    max_iter: 1000
+    solver:   "lbfgs"
+  random_forest:
+    n_estimators:      300
+    max_depth:         10
+    min_samples_leaf:  5
+
+# ── AutoEncoder ──────────────────────────────────────────────
+autoencoder:
+  encoder_dims:    [10, 7]
+  bottleneck_dim:  4
+  dropout_rate:    0.2
+  l2_reg:          0.00001
+  epochs:          100
+  batch_size:      256
+  learning_rate:   0.001
+  patience_stop:   10
+  patience_lr:     5
+  threshold_metric: "f1"               # métrique pour optimisation du seuil
+
+# ── Sorties ──────────────────────────────────────────────────
+output:
+  models_dir:    "outputs/models/"
+  reports_dir:   "outputs/reports/"
+  figures_dir:   "outputs/figures/"
+  figure_dpi:    150

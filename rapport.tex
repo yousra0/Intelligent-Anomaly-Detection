@@ -1,0 +1,351 @@
+\documentclass[12pt,a4paper,twoside]{report}
+
+% ======================
+% Packages
+% ======================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{times}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{setspace}
+\setstretch{1.15}
+
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{ragged2e}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+% ======================
+% Pagination
+% ======================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\nouppercase{\leftmark}}
+\fancyfoot[C]{\thepage}
+
+% ======================
+% Paragraphes
+% ======================
+\setlength{\parindent}{0.5cm}
+\justifying
+
+% ======================
+% Titres
+% ======================
+\titleformat{\chapter}{\bfseries\fontsize{16}{18}\selectfont}{\thechapter}{0.2cm}{}
+\titleformat{\section}{\bfseries\fontsize{14}{16}\selectfont}{\thesection}{0.2cm}{}
+\titleformat{\subsection}{\bfseries\fontsize{12}{14}\selectfont}{\thesubsection}{0.2cm}{}
+
+% ======================
+% Définition
+% ======================
+\newtcolorbox{definitionbox}{
+  colframe=black,
+  colback=white
+}
+
+% ======================
+% Métadonnées
+% ======================
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  pdftitle={Détection intelligente d'anomalies financières},
+  pdfauthor={Nom Prénom}
+}
+
+\begin{document}
+
+\pagenumbering{gobble}
+
+% =====================================================
+% PAGE DE GARDE
+% =====================================================
+\begin{titlepage}
+\centering
+
+\vspace{1.5cm}
+
+{\large \textbf{Université / École}}\\[0.4cm]
+{\large Département / Filière}
+
+\vspace{2cm}
+
+{\fontsize{24}{28}\selectfont \textbf{Détection intelligente d'anomalies financières}}
+
+\vspace{0.5cm}
+
+{\large \textbf{Analyse de transactions, modélisation et explications générées par LLM}}
+
+\vspace{2cm}
+
+{\large Réalisé par : Nom Prénom}\\[0.2cm]
+{\large Encadrant académique : Nom}\\[0.2cm]
+{\large Encadrant entreprise : Nom}
+
+\vfill
+
+{\large Année universitaire : 2025/2026}
+
+\end{titlepage}
+
+\clearpage
+\pagenumbering{roman}
+
+% =====================================================
+% DEDICACES
+% =====================================================
+\chapter*{Dédicaces}
+\addcontentsline{toc}{chapter}{Dédicaces}
+
+Je dédie ce travail à mes parents, pour leur soutien constant, leur confiance et les valeurs de persévérance qu'ils m'ont transmises. Leur présence m'a permis de mener ce projet à terme avec rigueur et sérénité.
+
+Je dédie également ce rapport à ma famille, à mes amis et à toutes les personnes qui m'ont encouragée tout au long de cette expérience. Leur bienveillance a rendu ce parcours plus riche et plus motivant.
+
+\newpage
+
+% =====================================================
+% REMERCIEMENTS
+% =====================================================
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+Je tiens à remercier toutes les personnes qui ont contribué à la réalisation de ce projet. Je remercie particulièrement mon encadrant pour ses conseils, sa disponibilité et ses remarques constructives.
+
+Je remercie également toute personne ayant facilité l'accès aux données, aux ressources techniques et au cadre méthodologique nécessaires à la conduite de ce travail.
+
+\newpage
+
+% =====================================================
+% RESUME
+% =====================================================
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Ce projet porte sur la détection intelligente d'anomalies financières à partir de données transactionnelles de type PaySim. L'objectif est de construire une chaîne complète et reproductible allant de l'analyse exploratoire des données à la préparation, puis à l'entraînement et à l'évaluation de plusieurs approches de détection.
+
+Le travail compare des modèles supervisés de référence, notamment la régression logistique et la forêt aléatoire, à une approche non supervisée fondée sur un autoencoder entraîné uniquement sur les transactions légitimes. Compte tenu du fort déséquilibre des classes, des techniques de prétraitement adaptées ont été utilisées, telles que l'encodage des variables catégorielles, la normalisation, la gestion des variables à risque et le rééchantillonnage SMOTE pour certains modèles.
+
+Afin d'améliorer l'interprétabilité, une intégration avec Ollama a été développée pour générer des explications en langage naturel des anomalies détectées. Le projet aboutit à une solution modulaire, testable et orientée vers un usage analytique et métier.
+
+\textbf{Mots-clés :} détection d'anomalies, fraude, autoencoder, SMOTE, interprétabilité, Ollama.
+
+\newpage
+
+% =====================================================
+% ABSTRACT
+% =====================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+This project focuses on intelligent anomaly detection in financial transactions using a PaySim-like dataset. The goal is to build a reproducible pipeline covering exploratory analysis, data preparation, model training, and evaluation.
+
+The study compares supervised baseline models, namely logistic regression and random forest, with an unsupervised autoencoder trained only on legitimate transactions. Because of the severe class imbalance, tailored preprocessing steps were applied, including categorical encoding, normalization, risk-oriented feature engineering, and SMOTE for selected models.
+
+To improve interpretability, an Ollama integration was developed to generate natural-language explanations for flagged anomalies. The resulting solution is modular, testable, and suitable for analytical and business-oriented use cases.
+
+\textbf{Keywords:} anomaly detection, fraud detection, autoencoder, SMOTE, explainability, Ollama.
+
+\newpage
+
+% =====================================================
+% TABLE DES MATIERES
+% =====================================================
+\tableofcontents
+\newpage
+
+\pagenumbering{arabic}
+
+% =====================================================
+% INTRODUCTION GENERALE
+% =====================================================
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+
+La détection de fraudes et d'anomalies dans les transactions financières est un enjeu majeur pour les institutions bancaires et les systèmes de paiement. Le volume croissant des données et la sophistication des comportements frauduleux rendent nécessaire l'utilisation de méthodes automatiques capables d'analyser un grand nombre de transactions en temps quasi réel.
+
+Ce projet s'inscrit dans cette problématique et propose une chaîne de traitement complète pour détecter des anomalies à partir de données transactionnelles. Il combine l'analyse des données, l'ingénierie de variables, plusieurs modèles de machine learning et une couche d'explicabilité générée par un modèle de langage.
+
+L'objectif du rapport est de présenter le contexte du problème, la méthode adoptée, les résultats obtenus et les apports de l'intégration Ollama pour rendre les prédictions plus interprétables.
+
+% =====================================================
+% CHAPITRE 1 : CONTEXTE
+% =====================================================
+\chapter{Contexte du projet et problématique}
+
+\section{Présentation générale}
+Le projet traite d'un problème de détection d'anomalies financières sur un jeu de données transactionnelles très déséquilibré. Le corpus utilisé contient environ 200 000 transactions, dont une faible proportion correspond à des opérations frauduleuses.
+
+\section{Contexte métier}
+Dans un contexte bancaire ou de paiement en ligne, les systèmes de détection doivent identifier rapidement les comportements suspects tout en limitant les faux positifs. Un bon système doit donc concilier précision, rappel et interprétabilité.
+
+\section{Problématique}
+Comment concevoir un pipeline reproductible capable d'identifier efficacement les transactions frauduleuses, tout en produisant des explications compréhensibles pour l'analyse métier ?
+
+\section{Objectifs}
+\begin{itemize}
+  \item Concevoir une chaîne de traitement complète, de l'analyse des données à l'évaluation des modèles.
+  \item Comparer des approches supervisées et non supervisées.
+  \item Gérer le déséquilibre extrême des classes.
+  \item Fournir des indicateurs d'évaluation adaptés à la détection de fraude.
+  \item Générer des explications textuelles pour les anomalies détectées.
+\end{itemize}
+
+\section{Conclusion}
+Ce chapitre a posé le cadre du projet et défini les objectifs. La suite du rapport détaille les données, la méthode et les résultats obtenus.
+
+% =====================================================
+% CHAPITRE 2 : DONNEES ET ETAT DE L'ART
+% =====================================================
+\chapter{Données et étude de l'existant}
+
+\section{Jeu de données}
+Le projet s'appuie sur des données de type PaySim représentant des transactions financières simulées. Les variables décrivent notamment le type d'opération, le montant, les soldes avant et après transaction, ainsi que plusieurs variables temporelles et comportementales.
+
+\section{Caractéristiques du problème}
+Le jeu de données présente un fort déséquilibre de classes. Les transactions frauduleuses représentent une part très faible du volume total, ce qui impose d'utiliser des métriques adaptées telles que le rappel, la précision, le F1-score et les courbes PR.
+
+\section{Approches de détection}
+Plusieurs familles d'approches sont couramment utilisées pour ce type de problème :
+\begin{itemize}
+  \item les modèles supervisés avec gestion du déséquilibre,
+  \item les approches fondées sur la reconstruction ou la distance,
+  \item les méthodes hybrides combinant score, règles et interprétabilité.
+\end{itemize}
+
+\section{Limites des approches classiques}
+Dans un contexte fortement déséquilibré, un modèle peut obtenir une bonne exactitude globale tout en détectant très peu de fraudes. Il est donc nécessaire d'évaluer la capacité à retrouver les anomalies, et pas seulement la performance moyenne.
+
+\section{Conclusion}
+L'analyse du contexte montre que le problème nécessite une stratégie robuste, sensible au déséquilibre des classes et orientée vers l'explication des prédictions.
+
+% =====================================================
+% CHAPITRE 3 : METHODOLOGIE
+% =====================================================
+\chapter{Méthodologie et conception}
+
+\section{Pipeline global}
+Le projet a été structuré en plusieurs étapes : compréhension des données, préparation, entraînement des modèles baseline, construction de l'autoencoder, évaluation puis génération d'explications via Ollama.
+
+\section{Prétraitement des données}
+Les étapes de préparation incluent la suppression des variables à risque de fuite d'information, l'encodage des variables catégorielles, la création de variables temporelles et comportementales, ainsi que la normalisation des variables numériques.
+
+\section{Ingénierie de variables}
+Le projet exploite plusieurs familles de variables :
+\begin{itemize}
+  \item variables temporelles : step, heure, jour, semaine,
+  \item variables comportementales : type d'opération, indicateurs de transfert ou cash-out,
+  \item variables de risque : écarts de solde, opérations à des heures sensibles, montant transformé par log.
+\end{itemize}
+
+\section{Gestion du déséquilibre}
+Pour les modèles supervisés, SMOTE est utilisé sur l'ensemble d'entraînement afin de mieux représenter la classe minoritaire. Pour l'autoencoder, l'apprentissage est effectué sur les transactions normales uniquement.
+
+\section{Modèles utilisés}
+Les modèles étudiés sont :
+\begin{itemize}
+  \item régression logistique avec pondération de classes,
+  \item forêt aléatoire avec pondération de classes,
+  \item autoencoder de reconstruction pour la détection non supervisée.
+\end{itemize}
+
+\section{Critères d'évaluation}
+Les performances sont analysées à l'aide du rappel, de la précision, du F1-score, de la matrice de confusion et, selon les cas, des courbes PR et des scores de reconstruction.
+
+\section{Conclusion}
+La méthodologie adoptée permet de comparer des approches complémentaires tout en maîtrisant les effets du déséquilibre et de la fuite d'information.
+
+% =====================================================
+% CHAPITRE 4 : REALISATION
+% =====================================================
+\chapter{Réalisation et implémentation}
+
+\section{Organisation du projet}
+Le dépôt est organisé en modules dédiés : prétraitement, feature engineering, modèles, visualisation, pipeline et intégration Ollama. Cette structure facilite la maintenance et la réutilisation des composants.
+
+\section{Notebooks de travail}
+La réalisation a été découpée en notebooks couvrant :
+\begin{itemize}
+  \item l'analyse exploratoire,
+  \item la préparation des données,
+  \item les modèles baseline,
+  \item l'autoencoder,
+  \item l'intégration Ollama.
+\end{itemize}
+
+\section{Orchestration}
+Le script \texttt{run_all.py} permet d'exécuter l'ensemble du pipeline de manière reproductible et séquentielle.
+
+\section{Sorties produites}
+Le projet génère des artefacts exploitables : rapports JSON/CSV, courbes de performance, poids du modèle autoencoder, scores de reconstruction et explications textuelles.
+
+\section{Difficultés rencontrées}
+Les principaux défis concernaient le déséquilibre des classes, l'harmonisation des transformations entre jeux d'entraînement et de test, ainsi que la génération d'explications utiles à partir de signaux techniques parfois bruités.
+
+\section{Conclusion}
+L'implémentation obtenue est modulaire et reproductible, ce qui facilite les expérimentations et les extensions futures.
+
+% =====================================================
+% CHAPITRE 5 : EVALUATION ET EXPLICABILITE
+% =====================================================
+\chapter{Évaluation et interprétabilité}
+
+\section{Analyse des résultats}
+Les modèles supervisés offrent généralement de bonnes performances sur les classes minoritaires lorsqu'ils sont correctement équilibrés. L'autoencoder fournit une alternative intéressante lorsqu'aucune étiquette fiable n'est disponible pour l'apprentissage.
+
+\section{Comparaison des approches}
+La comparaison entre les modèles montre l'intérêt de combiner des approches complémentaires. Les modèles supervisés servent de référence, tandis que l'autoencoder apporte une vision orientée anomalie et reconstruction.
+
+\section{Intégration Ollama}
+L'intégration Ollama permet de transformer des signaux techniques, comme les erreurs de reconstruction et les caractéristiques les plus contributives, en explications rédigées en langage naturel.
+
+\section{Apports pour l'analyse métier}
+Cette couche d'explicabilité aide à comprendre pourquoi une transaction est considérée comme suspecte et facilite l'exploitation des résultats par un utilisateur non spécialiste en machine learning.
+
+\section{Limites}
+Les limites principales concernent la dépendance à la qualité des données, la sensibilité des seuils de décision et la stabilité des explications générées par le modèle de langage.
+
+\section{Conclusion}
+L'évaluation confirme la pertinence d'une approche hybride, combinant détection automatique et génération d'explications interprétables.
+
+% =====================================================
+% CONCLUSION GENERALE
+% =====================================================
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Ce projet a permis de mettre en place une chaîne complète de détection d'anomalies financières, depuis l'analyse des données jusqu'à l'explication des prédictions. La comparaison entre modèles supervisés et autoencoder met en évidence l'importance du choix des métriques, du traitement du déséquilibre et du calibrage des seuils.
+
+L'intégration d'Ollama apporte une valeur ajoutée importante en rendant les sorties du système plus lisibles et plus exploitables. Ce travail ouvre la voie à plusieurs prolongements, notamment l'amélioration de l'interface d'analyse, l'automatisation du suivi des anomalies et l'enrichissement des explications générées.
+
+% =====================================================
+% BIBLIOGRAPHIE
+% =====================================================
+\chapter*{Bibliographie / Netographie}
+\addcontentsline{toc}{chapter}{Bibliographie / Netographie}
+
+\begin{itemize}
+  \item Documentation interne du projet, dépôt \textit{Intelligent Anomaly Detection}.
+  \item Scikit-learn : \url{https://scikit-learn.org/}
+  \item Imbalanced-learn : \url{https://imbalanced-learn.org/}
+  \item Documentation Ollama : \url{https://ollama.com/}
+  \item Articles et ressources sur la détection de fraude transactionnelle et les autoencoders.
+\end{itemize}
+
+% =====================================================
+% ANNEXES
+% =====================================================
+\appendix
+\chapter{Annexes}
+
+Cette partie peut contenir les détails techniques du prétraitement, les paramètres des modèles, des figures supplémentaires, ainsi que des extraits de résultats produits par le pipeline.
+
+\end{document}
