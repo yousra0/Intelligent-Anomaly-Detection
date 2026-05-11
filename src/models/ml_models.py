@@ -174,7 +174,7 @@ class FraudLogisticRegression:
             "train_time":   self.train_time,
         }
         joblib.dump(payload, path)
-
+  
     @classmethod
     def load(cls, path: Path | str) -> "FraudLogisticRegression":
         """Charge un modèle sauvegardé."""
