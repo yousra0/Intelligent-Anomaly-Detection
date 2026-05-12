@@ -2,6 +2,7 @@
 autoencoder.py
 ==============
 AutoEncoder non-supervisé pour la détection de fraude financière PaySim.
+IMPLÉMENTATION PYTORCH AVEC GPU
 
 Principe :
     L'AutoEncoder est entraîné UNIQUEMENT sur des transactions légitimes
@@ -16,12 +17,12 @@ Principe :
     Seuil de détection : percentile de l'erreur sur X_val → optimisé pour F1.
 
 Architecture (14 → 10 → 7 → 4 → 7 → 10 → 14) :
-    Encodeur : Dense(10, relu) → BN → Dropout(0.2)
-               Dense(7,  relu) → BN → Dropout(0.2)
-               Dense(4,  relu)          ← bottleneck
-    Décodeur : Dense(7,  relu) → BN → Dropout(0.2)
-               Dense(10, relu) → BN → Dropout(0.2)
-               Dense(14, linear)        ← reconstruction
+    Encodeur : Linear(14, 10) → BN → Dropout(0.2) → ReLU
+               Linear(10, 7)  → BN → Dropout(0.2) → ReLU
+               Linear(7, 4)   → ReLU          ← bottleneck
+    Décodeur : Linear(4, 7)  → BN → Dropout(0.2) → ReLU
+               Linear(7, 10) → BN → Dropout(0.2) → ReLU
+               Linear(10, 14) → Linear (reconstruction)
 
 Références :
     - X_train_normal : (139818, 14) — 0 fraudes
@@ -41,17 +42,20 @@ import numpy as np
 import pandas as pd
 import joblib
 
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers, callbacks, regularizers
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
 
 
 # ---------------------------------------------------------------------------
 # Reproductibilité
 # ---------------------------------------------------------------------------
 RANDOM_STATE = 42
-tf.random.set_seed(RANDOM_STATE)
+torch.manual_seed(RANDOM_STATE)
 np.random.seed(RANDOM_STATE)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(RANDOM_STATE)
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +67,7 @@ AE_DEFAULTS = {
     "bottleneck_dim": 4,             # dimension de l'espace latent
     "decoder_dims":  [7, 10],        # couches décodeur
     "activation":    "relu",
-    "output_activation": "linear",   # reconstruction continue (features scalées)
+    "output_activation": "linear",   # reconstruction continue
 
     # Régularisation
     "dropout_rate":  0.2,
@@ -83,12 +87,158 @@ AE_DEFAULTS = {
 
 
 # ---------------------------------------------------------------------------
+# Modèle PyTorch
+# ---------------------------------------------------------------------------
+
+class AutoEncoderModel(nn.Module):
+    """Architecture AutoEncoder en PyTorch."""
+
+    def __init__(
+        self,
+        n_features: int,
+        encoder_dims: list,
+        bottleneck_dim: int,
+        decoder_dims: list,
+        activation: str = "relu",
+        output_activation: str = "linear",
+        dropout_rate: float = 0.2,
+        use_batch_norm: bool = True,
+        l2_reg: float = 1e-5,
+    ) -> None:
+        super().__init__()
+        self.n_features = n_features
+        self.bottleneck_dim = bottleneck_dim
+        self.use_batch_norm = use_batch_norm
+        self.activation = activation.lower()
+        self.output_activation = output_activation.lower()
+        self.l2_reg = l2_reg
+
+        # ── Encodeur ──
+        encoder_layers = []
+        prev_dim = n_features
+        for dim in encoder_dims:
+            encoder_layers.append(nn.Linear(prev_dim, dim))
+            if use_batch_norm:
+                encoder_layers.append(nn.BatchNorm1d(dim))
+            if activation.lower() == "relu":
+                encoder_layers.append(nn.ReLU())
+            encoder_layers.append(nn.Dropout(dropout_rate))
+            prev_dim = dim
+
+        # Bottleneck
+        encoder_layers.append(nn.Linear(prev_dim, bottleneck_dim))
+        if activation.lower() == "relu":
+            encoder_layers.append(nn.ReLU())
+
+        self.encoder = nn.Sequential(*encoder_layers)
+
+        # ── Décodeur ──
+        decoder_layers = []
+        prev_dim = bottleneck_dim
+        for dim in decoder_dims:
+            decoder_layers.append(nn.Linear(prev_dim, dim))
+            if use_batch_norm:
+                decoder_layers.append(nn.BatchNorm1d(dim))
+            if activation.lower() == "relu":
+                decoder_layers.append(nn.ReLU())
+            decoder_layers.append(nn.Dropout(dropout_rate))
+            prev_dim = dim
+
+        # Sortie (reconstruction)
+        decoder_layers.append(nn.Linear(prev_dim, n_features))
+        # Pas d'activation en sortie (linear)
+
+        self.decoder = nn.Sequential(*decoder_layers)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass."""
+        encoded = self.encode(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        """Encode (bottleneck)."""
+        return self.encoder(x)
+
+    def count_params(self) -> int:
+        """Nombre total de paramètres."""
+        return sum(p.numel() for p in self.parameters())
+
+
+# ---------------------------------------------------------------------------
+# Callbacks personnalisés
+# ---------------------------------------------------------------------------
+
+class EarlyStopping:
+    """EarlyStopping pour PyTorch."""
+
+    def __init__(self, patience: int = 10, verbose: bool = True):
+        self.patience = patience
+        self.verbose = verbose
+        self.counter = 0
+        self.best_loss = None
+        self.early_stop = False
+
+    def __call__(self, val_loss: float) -> bool:
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss < self.best_loss:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.verbose and self.counter % 5 == 0:
+                print(f"  EarlyStopping: {self.counter}/{self.patience}")
+            if self.counter >= self.patience:
+                self.early_stop = True
+        return self.early_stop
+
+
+class ReduceLROnPlateau:
+    """ReduceLROnPlateau pour PyTorch."""
+
+    def __init__(
+        self,
+        optimizer: optim.Optimizer,
+        factor: float = 0.5,
+        patience: int = 5,
+        min_lr: float = 1e-6,
+        verbose: bool = True,
+    ):
+        self.optimizer = optimizer
+        self.factor = factor
+        self.patience = patience
+        self.min_lr = min_lr
+        self.verbose = verbose
+        self.counter = 0
+        self.best_loss = None
+
+    def __call__(self, val_loss: float) -> None:
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss < self.best_loss:
+            self.best_loss = val_loss
+            self.counter = 0
+        else:
+            self.counter += 1
+            if self.counter >= self.patience:
+                new_lr = max(
+                    self.min_lr,
+                    self.optimizer.param_groups[0]["lr"] * self.factor
+                )
+                self.optimizer.param_groups[0]["lr"] = new_lr
+                if self.verbose:
+                    print(f"  ReduceLROnPlateau: LR → {new_lr:.2e}")
+                self.counter = 0
+
+
+# ---------------------------------------------------------------------------
 # Classe FraudAutoEncoder
 # ---------------------------------------------------------------------------
 
 class FraudAutoEncoder:
     """
-    AutoEncoder non-supervisé pour la détection de fraude.
+    AutoEncoder non-supervisé pour la détection de fraude — PYTORCH GPU.
 
     Usage typique :
         ae = FraudAutoEncoder()
@@ -100,14 +250,14 @@ class FraudAutoEncoder:
     """
 
     def __init__(self, **kwargs) -> None:
-        self.params      = {**AE_DEFAULTS, **kwargs}
-        self.model:       Optional[keras.Model] = None
-        self.encoder:     Optional[keras.Model] = None
-        self.threshold:   float = 0.0
-        self.train_time:  float = 0.0
-        self.history:     Optional[dict] = None
-        self.n_features:  int = 0
-        self.is_fitted:   bool = False
+        self.params = {**AE_DEFAULTS, **kwargs}
+        self.model: Optional[AutoEncoderModel] = None
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.threshold: float = 0.0
+        self.train_time: float = 0.0
+        self.history: Optional[dict] = None
+        self.n_features: int = 0
+        self.is_fitted: bool = False
         self.train_mse_stats: dict = {}
 
     # ── Construction du modèle ───────────────────────────────────────────────
@@ -115,11 +265,6 @@ class FraudAutoEncoder:
     def build(self, n_features: int = 14) -> "FraudAutoEncoder":
         """
         Construit l'architecture encodeur-décodeur.
-
-        Architecture : 14 → 10 → 7 → [4] → 7 → 10 → 14
-            - BatchNormalization après chaque Dense (sauf bottleneck et sortie)
-            - Dropout(0.2) pour régularisation
-            - L2 sur les poids denses
 
         Args:
             n_features: Nombre de features en entrée (14 pour PaySim).
@@ -130,57 +275,18 @@ class FraudAutoEncoder:
         self.n_features = n_features
         p = self.params
 
-        inp = keras.Input(shape=(n_features,), name="input")
-        x   = inp
-
-        # ── Encodeur ──
-        for i, dim in enumerate(p["encoder_dims"]):
-            x = layers.Dense(
-                dim,
-                activation=p["activation"],
-                kernel_regularizer=regularizers.l2(p["l2_reg"]),
-                name=f"enc_{i+1}",
-            )(x)
-            if p["use_batch_norm"]:
-                x = layers.BatchNormalization(name=f"bn_enc_{i+1}")(x)
-            x = layers.Dropout(p["dropout_rate"], name=f"drop_enc_{i+1}")(x)
-
-        # ── Bottleneck ──
-        encoded = layers.Dense(
-            p["bottleneck_dim"],
+        self.model = AutoEncoderModel(
+            n_features=n_features,
+            encoder_dims=p["encoder_dims"],
+            bottleneck_dim=p["bottleneck_dim"],
+            decoder_dims=p["decoder_dims"],
             activation=p["activation"],
-            name="bottleneck",
-        )(x)
-
-        # ── Décodeur ──
-        x = encoded
-        for i, dim in enumerate(p["decoder_dims"]):
-            x = layers.Dense(
-                dim,
-                activation=p["activation"],
-                kernel_regularizer=regularizers.l2(p["l2_reg"]),
-                name=f"dec_{i+1}",
-            )(x)
-            if p["use_batch_norm"]:
-                x = layers.BatchNormalization(name=f"bn_dec_{i+1}")(x)
-            x = layers.Dropout(p["dropout_rate"], name=f"drop_dec_{i+1}")(x)
-
-        # ── Sortie (reconstruction) ──
-        decoded = layers.Dense(
-            n_features,
-            activation=p["output_activation"],
-            name="output",
-        )(x)
-
-        # ── Modèles ──
-        self.model   = keras.Model(inp, decoded,  name="FraudAutoEncoder")
-        self.encoder = keras.Model(inp, encoded,  name="Encoder")
-
-        self.model.compile(
-            optimizer=keras.optimizers.Adam(learning_rate=p["learning_rate"]),
-            loss="mse",
-            metrics=["mae"],
+            output_activation=p["output_activation"],
+            dropout_rate=p["dropout_rate"],
+            use_batch_norm=p["use_batch_norm"],
+            l2_reg=p["l2_reg"],
         )
+        self.model = self.model.to(self.device)
         return self
 
     def summary(self) -> str:
@@ -196,12 +302,14 @@ class FraudAutoEncoder:
             + f" → {self.n_features}"
         )
         lines = [
-            "FraudAutoEncoder",
+            "FraudAutoEncoder (PyTorch + GPU)",
             f"  Architecture : {arch}",
+            f"  Device       : {self.device}",
             f"  BatchNorm    : {p['use_batch_norm']}",
             f"  Dropout      : {p['dropout_rate']}",
             f"  L2 reg       : {p['l2_reg']}",
             f"  Bottleneck   : {p['bottleneck_dim']} dims",
+            f"  Total params : {self.model.count_params():,}",
             f"  Epochs max   : {p['epochs']}  (patience={p['patience']})",
             f"  Batch size   : {p['batch_size']}",
             f"  LR           : {p['learning_rate']}",
@@ -236,47 +344,136 @@ class FraudAutoEncoder:
         X = np.asarray(X_normal, dtype=np.float32)
         p = self.params
 
-        cb_list = [
-            callbacks.EarlyStopping(
-                monitor="val_loss",
-                patience=p["patience"],
-                restore_best_weights=True,
-                verbose=1,
-            ),
-            callbacks.ReduceLROnPlateau(
-                monitor="val_loss",
-                factor=0.5,
-                patience=5,
-                min_lr=1e-6,
-                verbose=1,
-            ),
-        ]
+        # Split train/val
+        n = len(X)
+        n_val = int(n * p["val_split"])
+        n_train = n - n_val
+
+        # Shuffle et split
+        idx = np.random.permutation(n)
+        idx_train, idx_val = idx[:n_train], idx[n_train:]
+        X_train = X[idx_train]
+        X_val = X[idx_val]
+
+        # DataLoaders
+        train_dataset = TensorDataset(torch.FloatTensor(X_train))
+        val_dataset = TensorDataset(torch.FloatTensor(X_val))
+        train_loader = DataLoader(
+            train_dataset, batch_size=p["batch_size"], shuffle=True
+        )
+        val_loader = DataLoader(
+            val_dataset, batch_size=p["batch_size"], shuffle=False
+        )
+
+        # Optimiseur & Loss
+        optimizer = optim.Adam(
+            self.model.parameters(),
+            lr=p["learning_rate"],
+            weight_decay=p["l2_reg"],
+        )
+        criterion = nn.MSELoss()
+
+        # Callbacks
+        early_stopping = EarlyStopping(patience=p["patience"], verbose=True)
+        reduce_lr = ReduceLROnPlateau(
+            optimizer, factor=0.5, patience=5, min_lr=1e-6, verbose=True
+        )
+
+        # Historique
+        self.history = {"loss": [], "val_loss": [], "mae": []}
 
         t0 = time.time()
-        hist = self.model.fit(
-            X, X,                          # AutoEncoder : input = output
-            epochs=p["epochs"],
-            batch_size=p["batch_size"],
-            validation_split=p["val_split"],
-            callbacks=cb_list,
-            shuffle=True,
-            verbose=verbose,
-        )
+        best_model_state = None
+        best_val_loss = float("inf")
+
+        for epoch in range(p["epochs"]):
+            # ── Train ──
+            self.model.train()
+            train_loss = 0.0
+            train_mae = 0.0
+            n_batches = 0
+
+            for batch in train_loader:
+                X_batch = batch[0].to(self.device)
+
+                optimizer.zero_grad()
+                X_recon = self.model(X_batch)
+                loss = criterion(X_recon, X_batch)
+                loss.backward()
+                optimizer.step()
+
+                train_loss += loss.item()
+                with torch.no_grad():
+                    mae = torch.abs(X_recon - X_batch).mean().item()
+                    train_mae += mae
+                n_batches += 1
+
+            train_loss /= n_batches
+            train_mae /= n_batches
+
+            # ── Validation ──
+            self.model.eval()
+            val_loss = 0.0
+            n_val_batches = 0
+
+            with torch.no_grad():
+                for batch in val_loader:
+                    X_batch = batch[0].to(self.device)
+                    X_recon = self.model(X_batch)
+                    loss = criterion(X_recon, X_batch)
+                    val_loss += loss.item()
+                    n_val_batches += 1
+
+            val_loss /= n_val_batches
+
+            # Historique
+            self.history["loss"].append(float(train_loss))
+            self.history["val_loss"].append(float(val_loss))
+            self.history["mae"].append(float(train_mae))
+
+            # Affichage
+            if verbose == 1 and (epoch + 1) % max(1, p["epochs"] // 10) == 0:
+                print(
+                    f"Epoch {epoch+1:3d}/{p['epochs']}  "
+                    f"loss={train_loss:.4f}  val_loss={val_loss:.4f}"
+                )
+
+            # EarlyStopping + ReduceLROnPlateau
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
+                best_model_state = {
+                    k: v.cpu() for k, v in self.model.state_dict().items()
+                }
+
+            reduce_lr(val_loss)
+            if early_stopping(val_loss):
+                if verbose >= 1:
+                    print(f"Early stopping at epoch {epoch+1}")
+                break
+
+        # Restore best weights
+        if best_model_state is not None:
+            self.model.load_state_dict(best_model_state)
+            for k in best_model_state:
+                self.model.state_dict()[k].copy_(best_model_state[k])
+            self.model.to(self.device)
+
         self.train_time = round(time.time() - t0, 1)
-        self.history    = hist.history
-        self.is_fitted  = True
+        self.is_fitted = True
 
         # Stats MSE sur train normal (référence pour le seuil)
-        train_errors = self.reconstruction_error(X)
+        train_errors = self.reconstruction_error(X_train)
         self.train_mse_stats = {
-            "mean":   float(train_errors.mean()),
-            "std":    float(train_errors.std()),
-            "p95":    float(np.percentile(train_errors, 95)),
-            "p99":    float(np.percentile(train_errors, 99)),
-            "max":    float(train_errors.max()),
+            "mean": float(train_errors.mean()),
+            "std": float(train_errors.std()),
+            "p95": float(np.percentile(train_errors, 95)),
+            "p99": float(np.percentile(train_errors, 99)),
+            "max": float(train_errors.max()),
         }
 
         print(f"\n✅ Entraînement terminé en {self.train_time}s")
+        print(f"   Epochs effectifs : {len(self.history['loss'])}")
+        print(f"   Best val_loss    : {min(self.history['val_loss']):.6f}")
         print(f"   MSE moyen (train normal) : {self.train_mse_stats['mean']:.6f}")
         print(f"   MSE p95 (train normal)   : {self.train_mse_stats['p95']:.6f}")
         print(f"   MSE p99 (train normal)   : {self.train_mse_stats['p99']:.6f}")
@@ -301,17 +498,27 @@ class FraudAutoEncoder:
         Returns:
             Array 1D des erreurs de reconstruction (shape=(n,)).
         """
-        X_arr  = np.asarray(X, dtype=np.float32)
-        X_rec  = self.model.predict(X_arr, verbose=0)
-        errors = np.mean((X_arr - X_rec) ** 2, axis=1)
-        if reduction == "sum":
-            errors = np.sum((X_arr - X_rec) ** 2, axis=1)
+        X_arr = np.asarray(X, dtype=np.float32)
+        self.model.eval()
+
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X_arr).to(self.device)
+            X_recon = self.model(X_tensor).cpu().numpy()
+            if reduction == "mean":
+                errors = np.mean((X_arr - X_recon) ** 2, axis=1)
+            else:  # sum
+                errors = np.sum((X_arr - X_recon) ** 2, axis=1)
         return errors
 
     def encode(self, X: np.ndarray | pd.DataFrame) -> np.ndarray:
         """Projette les données dans l'espace latent (bottleneck)."""
         X_arr = np.asarray(X, dtype=np.float32)
-        return self.encoder.predict(X_arr, verbose=0)
+        self.model.eval()
+
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X_arr).to(self.device)
+            encoded = self.model.encode(X_tensor).cpu().numpy()
+        return encoded
 
     # ── Seuil optimal ───────────────────────────────────────────────────────
 
@@ -347,7 +554,7 @@ class FraudAutoEncoder:
         thresholds = np.linspace(t_min, t_max, n_thresholds)
 
         best_score = -1.0
-        best_t     = t_min
+        best_t = t_min
 
         for t in thresholds:
             y_pred = (errors >= t).astype(int)
@@ -359,17 +566,15 @@ class FraudAutoEncoder:
                 score = tp / (tp + fn) if (tp + fn) > 0 else 0.0
             else:  # f1
                 prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-                rec  = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-                score = (2 * prec * rec / (prec + rec)
-                         if (prec + rec) > 0 else 0.0)
+                rec = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                score = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
 
             if score > best_score:
                 best_score = score
-                best_t     = float(t)
+                best_t = float(t)
 
         self.threshold = best_t
-        print(f"Seuil optimal ({metric}) : {best_t:.6f}  "
-              f"(score val={best_score:.4f})")
+        print(f"Seuil optimal ({metric}) : {best_t:.6f}  " f"(score val={best_score:.4f})")
         return best_t
 
     def predict(
@@ -413,44 +618,43 @@ class FraudAutoEncoder:
 
     def save(self, model_dir: Path | str) -> None:
         """
-        Sauvegarde le modèle Keras + métadonnées.
+        Sauvegarde le modèle PyTorch + métadonnées.
 
         Structure créée dans model_dir/ :
-            autoencoder_weights.keras   → poids du modèle
-            autoencoder_meta.pkl        → params, threshold, stats
+            autoencoder_weights.pt     → poids du modèle
+            autoencoder_meta.pkl       → params, threshold, stats
         """
         model_dir = Path(model_dir)
         model_dir.mkdir(parents=True, exist_ok=True)
 
-        self.model.save(model_dir / "autoencoder_weights.keras")
+        # Sauvegarder les poids (sur CPU)
+        torch.save(self.model.state_dict(), model_dir / "autoencoder_weights.pt")
+
         meta = {
-            "params":           self.params,
-            "threshold":        self.threshold,
-            "train_time":       self.train_time,
-            "n_features":       self.n_features,
-            "train_mse_stats":  self.train_mse_stats,
-            "history_keys":     list(self.history.keys()) if self.history else [],
+            "params": self.params,
+            "threshold": self.threshold,
+            "train_time": self.train_time,
+            "n_features": self.n_features,
+            "train_mse_stats": self.train_mse_stats,
+            "history_keys": list(self.history.keys()) if self.history else [],
         }
         joblib.dump(meta, model_dir / "autoencoder_meta.pkl")
-        print(f"✅ AutoEncoder sauvegardé → {model_dir}")
+        print(f"✅ AutoEncoder (PyTorch) sauvegardé → {model_dir}")
 
     @classmethod
     def load(cls, model_dir: Path | str) -> "FraudAutoEncoder":
         """Charge un AutoEncoder sauvegardé."""
         model_dir = Path(model_dir)
-        meta      = joblib.load(model_dir / "autoencoder_meta.pkl")
+        meta = joblib.load(model_dir / "autoencoder_meta.pkl")
 
         obj = cls(**meta["params"])
-        obj.model         = keras.models.load_model(
-            model_dir / "autoencoder_weights.keras"
+        obj.build(n_features=meta["n_features"])
+        obj.model.load_state_dict(
+            torch.load(model_dir / "autoencoder_weights.pt", map_location=obj.device)
         )
-        obj.encoder       = keras.Model(
-            obj.model.input,
-            obj.model.get_layer("bottleneck").output,
-        )
-        obj.threshold        = meta["threshold"]
-        obj.train_time       = meta["train_time"]
-        obj.n_features       = meta["n_features"]
-        obj.train_mse_stats  = meta["train_mse_stats"]
-        obj.is_fitted        = True
+        obj.threshold = meta["threshold"]
+        obj.train_time = meta["train_time"]
+        obj.train_mse_stats = meta["train_mse_stats"]
+        obj.is_fitted = True
         return obj
+
