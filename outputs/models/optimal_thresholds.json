@@ -1,8 +1,17 @@
 {
-  "LR_balanced": 0.9986295872338673,
-  "LR_smote": 0.9621257303377755,
-  "RF_balanced": 0.6234509387008315,
-  "RF_smote": 0.6291040362527268,
-  "XGB_smote": 0.3547244966030121,
-  "IsoForest": 0.7728890001259492
+  "timestamp": "2026-05-13T11:14:40.313468",
+  "source": "NB03_baseline_models.ipynb",
+  "val_metrics": {
+    "n_val": 30000,
+    "n_fraud_val": 38
+  },
+  "thresholds": {
+    "LR_balanced": 0.9986295872338673,
+    "LR_smote": 0.9621257303377755,
+    "RF_balanced": 0.6234509387008316,
+    "RF_smote": 0.6291040362527268,
+    "XGB_smote": 0.3547244966030121,
+    "IsoForest": 0.7728890001259492
+  },
+  "description": "Seuils optimaux par modèle, maximisant F-beta (beta=2) sur validation set"
 }

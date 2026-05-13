@@ -33,6 +33,7 @@ Références :
 
 from __future__ import annotations
 
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -228,7 +229,7 @@ class ReduceLROnPlateau:
                 )
                 self.optimizer.param_groups[0]["lr"] = new_lr
                 if self.verbose:
-                    print(f"  ReduceLROnPlateau: LR → {new_lr:.2e}")
+                    print(f"  ReduceLROnPlateau: LR -> {new_lr:.2e}")
                 self.counter = 0
 
 
@@ -259,6 +260,83 @@ class FraudAutoEncoder:
         self.n_features: int = 0
         self.is_fitted: bool = False
         self.train_mse_stats: dict = {}
+        self.training_seed: Optional[int] = None
+        self.torch_rng_state: Optional[torch.Tensor] = None
+        self.cuda_rng_state_all: list[torch.Tensor] = []
+
+    def count_params(self) -> int:
+        """Retourne le nombre de paramètres du modèle avec fallback robuste."""
+        if self.model is None:
+            return 0
+
+        count_params_fn = getattr(self.model, "count_params", None)
+        if callable(count_params_fn):
+            try:
+                return int(count_params_fn())
+            except (TypeError, ValueError):
+                pass
+
+        return int(sum(p.numel() for p in self.model.parameters()))
+
+    def _architecture_metadata(self) -> dict:
+        """Décrit l'architecture du modèle de façon JSON-serializable."""
+        p = self.params
+        return {
+            "class_name": self.model.__class__.__name__ if self.model is not None else None,
+            "n_features": self.n_features,
+            "encoder_dims": list(p["encoder_dims"]),
+            "bottleneck_dim": p["bottleneck_dim"],
+            "decoder_dims": list(p["decoder_dims"]),
+            "activation": p["activation"],
+            "output_activation": p["output_activation"],
+            "dropout_rate": p["dropout_rate"],
+            "use_batch_norm": p["use_batch_norm"],
+            "l2_reg": p["l2_reg"],
+            "total_params": self.count_params(),
+        }
+
+    def export_metadata(self, weights_path: Path | str | None = None) -> dict:
+        """Retourne les métadonnées JSON-safe de l'AutoEncoder exporté."""
+        meta = {
+            "model_class": self.__class__.__name__,
+            "architecture": self._architecture_metadata(),
+            "training": {
+                "training_seed": self.training_seed,
+                "torch_rng_state_sha256": self._tensor_sha256(self.torch_rng_state),
+                "cuda_rng_state_sha256": [
+                    self._tensor_sha256(state) for state in self.cuda_rng_state_all
+                ],
+            },
+        }
+
+        if weights_path is not None:
+            path = Path(weights_path)
+            if path.exists():
+                meta["weights_sha256"] = self._file_sha256(path)
+
+        return meta
+
+    @staticmethod
+    def _tensor_sha256(tensor: Optional[torch.Tensor]) -> Optional[str]:
+        if tensor is None:
+            return None
+        return hashlib.sha256(tensor.detach().cpu().numpy().tobytes()).hexdigest()
+
+    @staticmethod
+    def _file_sha256(file_path: Path) -> str:
+        hasher = hashlib.sha256()
+        with open(file_path, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
+
+    def _capture_training_rng_state(self) -> None:
+        self.training_seed = int(torch.initial_seed())
+        self.torch_rng_state = torch.get_rng_state().clone()
+        if torch.cuda.is_available():
+            self.cuda_rng_state_all = [state.clone() for state in torch.cuda.get_rng_state_all()]
+        else:
+            self.cuda_rng_state_all = []
 
     # ── Construction du modèle ───────────────────────────────────────────────
 
@@ -309,7 +387,7 @@ class FraudAutoEncoder:
             f"  Dropout      : {p['dropout_rate']}",
             f"  L2 reg       : {p['l2_reg']}",
             f"  Bottleneck   : {p['bottleneck_dim']} dims",
-            f"  Total params : {self.model.count_params():,}",
+            f"  Total params : {self.count_params():,}",
             f"  Epochs max   : {p['epochs']}  (patience={p['patience']})",
             f"  Batch size   : {p['batch_size']}",
             f"  LR           : {p['learning_rate']}",
@@ -343,6 +421,7 @@ class FraudAutoEncoder:
 
         X = np.asarray(X_normal, dtype=np.float32)
         p = self.params
+        self._capture_training_rng_state()
 
         # Split train/val
         n = len(X)
@@ -471,7 +550,7 @@ class FraudAutoEncoder:
             "max": float(train_errors.max()),
         }
 
-        print(f"\n✅ Entraînement terminé en {self.train_time}s")
+        print(f"\nOK: Entrainement termine en {self.train_time}s")
         print(f"   Epochs effectifs : {len(self.history['loss'])}")
         print(f"   Best val_loss    : {min(self.history['val_loss']):.6f}")
         print(f"   MSE moyen (train normal) : {self.train_mse_stats['mean']:.6f}")
@@ -628,7 +707,8 @@ class FraudAutoEncoder:
         model_dir.mkdir(parents=True, exist_ok=True)
 
         # Sauvegarder les poids (sur CPU)
-        torch.save(self.model.state_dict(), model_dir / "autoencoder_weights.pt")
+        weights_path = model_dir / "autoencoder_weights.pt"
+        torch.save(self.model.state_dict(), weights_path)
 
         meta = {
             "params": self.params,
@@ -637,9 +717,14 @@ class FraudAutoEncoder:
             "n_features": self.n_features,
             "train_mse_stats": self.train_mse_stats,
             "history_keys": list(self.history.keys()) if self.history else [],
+            "architecture": self._architecture_metadata(),
+            "weights_sha256": self._file_sha256(weights_path),
+            "training_seed": self.training_seed,
+            "torch_rng_state": self.torch_rng_state,
+            "cuda_rng_state_all": self.cuda_rng_state_all,
         }
         joblib.dump(meta, model_dir / "autoencoder_meta.pkl")
-        print(f"✅ AutoEncoder (PyTorch) sauvegardé → {model_dir}")
+        print(f"OK: AutoEncoder (PyTorch) sauvegarde -> {model_dir}")
 
     @classmethod
     def load(cls, model_dir: Path | str) -> "FraudAutoEncoder":
@@ -655,6 +740,9 @@ class FraudAutoEncoder:
         obj.threshold = meta["threshold"]
         obj.train_time = meta["train_time"]
         obj.train_mse_stats = meta["train_mse_stats"]
+        obj.training_seed = meta.get("training_seed")
+        obj.torch_rng_state = meta.get("torch_rng_state")
+        obj.cuda_rng_state_all = meta.get("cuda_rng_state_all", [])
         obj.is_fitted = True
         return obj
 

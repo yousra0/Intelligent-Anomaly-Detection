@@ -1,6 +1,41 @@
 ### Vérification des valeurs manquantes
 import pandas as pd
 import numpy as np
+from pathlib import Path
+
+
+def validate_score_array(scores, *, name: str = "scores") -> dict:
+    """Validate anomaly score arrays before saving or loading them."""
+    arr = np.asarray(scores)
+
+    if arr.ndim != 1:
+        raise ValueError(f"{name} must be 1-D, got shape {arr.shape}.")
+    if arr.size == 0:
+        raise ValueError(f"{name} must not be empty.")
+    if not np.issubdtype(arr.dtype, np.number):
+        raise ValueError(f"{name} must be numeric, got dtype {arr.dtype}.")
+    if not np.isfinite(arr).all():
+        raise ValueError(f"{name} contains non-finite values.")
+
+    min_value = float(arr.min())
+    max_value = float(arr.max())
+    if min_value < 0.0:
+        raise ValueError(f"{name} must be non-negative, got min {min_value}.")
+
+    return {
+        "name": name,
+        "shape": tuple(arr.shape),
+        "min": min_value,
+        "max": max_value,
+        "mean": float(arr.mean()),
+    }
+
+
+def validate_saved_score_file(file_path: Path | str, *, name: str = "scores") -> dict:
+    """Load and validate a persisted score array."""
+    path = Path(file_path)
+    scores = np.load(path, allow_pickle=True)
+    return validate_score_array(scores, name=name)
 
 def check_missing_values(df):
     """

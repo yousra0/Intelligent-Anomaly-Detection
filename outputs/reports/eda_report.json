@@ -1,10 +1,22 @@
 {
   "dataset": {
     "name": "PaySim Synthetic Financial Fraud Dataset",
+    "source_file": "dataset_orig.csv",
     "sample_size": 200000,
     "sampling_method": "stratified_split",
     "random_state": 42,
     "n_columns": 18
+  },
+  "reproducibility": {
+    "split_trace": {
+      "random_state": 42,
+      "sample_size_target": 200000,
+      "sample_size_effective": 200000,
+      "sampling_method": "stratified_split",
+      "stratified": true,
+      "split_indices_sha256": "f6547a1c90222619d1b4e1d368761a7ecb07546358dd4ebbf2816659ec885070"
+    },
+    "describe_export": "eda_summary_stats.csv"
   },
   "class_distribution": {
     "fraud_count": 258,
@@ -74,6 +86,13 @@
     "balance_diff_orig",
     "dest_zero_balance"
   ],
+  "feature_rationale": {
+    "balance_diff_orig": {
+      "keep": true,
+      "why": "Behavioural signal (account-drain pattern) observable at transaction time.",
+      "leakage_note": "Raw before/after balances are excluded; this delta is retained with caution and monitored in validation."
+    }
+  },
   "features_excluded_leakage": [
     "oldbalanceOrg",
     "newbalanceOrig",
@@ -90,5 +109,191 @@
     ],
     "avoid": "Accuracy (trompeuse avec déséquilibre 1:1359)",
     "dl_target_recall_min": 0.0039
+  },
+  "artifact_manifest": {
+    "eda_summary_stats_csv": {
+      "filename": "eda_summary_stats.csv",
+      "sha256": "2920535667f2759a6134a519eda0ad3e02f833d96358351fc3049253ab653258"
+    },
+    "feature_correlations_csv": {
+      "filename": "feature_correlations.csv",
+      "sha256": "f86e87e174b522bdc9130a6f3f3c62efa82012314b3e947da23dd8207f0d10e2"
+    },
+    "figures_01_07": [
+      {
+        "filename": "01_class_imbalance.png",
+        "sha256": "8e9166c19848d1581b1ef259202f22f89f302f33b29435f0727af70b3c9d8cc2"
+      },
+      {
+        "filename": "02_transaction_types.png",
+        "sha256": "7b424a45fb7cbd4c1f0ca91485d2eea02acfcbbb62f25c606d551659405292ef"
+      },
+      {
+        "filename": "03_amount_distribution.png",
+        "sha256": "7da413646190f6f5a2d02dbbd5b1a5c84c2b9059938797bd173bb4de2a8abfef"
+      },
+      {
+        "filename": "04_fraud_by_amount_quantile.png",
+        "sha256": "3dcefbbafa8da331e50f9e6a3151a645cbf9e0b5fa1867dc4c8934bbd16ead1c"
+      },
+      {
+        "filename": "05_temporal_analysis.png",
+        "sha256": "5b53e4d5bae129faf7e0924ef7653df4d83c65a684bb730793beace870f61ee0"
+      },
+      {
+        "filename": "06_feature_correlations.png",
+        "sha256": "d07d86f783d5387ee77db427ad6b0f9bdaf537ad2f56068f186a83da8a4b0e52"
+      },
+      {
+        "filename": "07_leakage_heatmap.png",
+        "sha256": "7502df3060bf86fdd1e81650e5d58890b015377088600107d69c2f1080a56879"
+      }
+    ],
+    "figures_all_png": [
+      {
+        "filename": "01_class_imbalance.png",
+        "sha256": "8e9166c19848d1581b1ef259202f22f89f302f33b29435f0727af70b3c9d8cc2"
+      },
+      {
+        "filename": "02_transaction_types.png",
+        "sha256": "7b424a45fb7cbd4c1f0ca91485d2eea02acfcbbb62f25c606d551659405292ef"
+      },
+      {
+        "filename": "03_amount_distribution.png",
+        "sha256": "7da413646190f6f5a2d02dbbd5b1a5c84c2b9059938797bd173bb4de2a8abfef"
+      },
+      {
+        "filename": "04_fraud_by_amount_quantile.png",
+        "sha256": "3dcefbbafa8da331e50f9e6a3151a645cbf9e0b5fa1867dc4c8934bbd16ead1c"
+      },
+      {
+        "filename": "05_temporal_analysis.png",
+        "sha256": "5b53e4d5bae129faf7e0924ef7653df4d83c65a684bb730793beace870f61ee0"
+      },
+      {
+        "filename": "06_feature_correlations.png",
+        "sha256": "d07d86f783d5387ee77db427ad6b0f9bdaf537ad2f56068f186a83da8a4b0e52"
+      },
+      {
+        "filename": "07_leakage_heatmap.png",
+        "sha256": "7502df3060bf86fdd1e81650e5d58890b015377088600107d69c2f1080a56879"
+      },
+      {
+        "filename": "08_log_transform.png",
+        "sha256": "ffba6f9cbc05cb4b4c1aa70a96c00e3ea9dd7f3576e1a5bd2ac23bcada0d62fb"
+      },
+      {
+        "filename": "09_split.png",
+        "sha256": "b6505c4da88b3d12571287217e273492521ef2f5255914e889f7bce430bc336a"
+      },
+      {
+        "filename": "10_scaling.png",
+        "sha256": "48af644ba8b833f02c336cf6a05dc445f43af34b88748e096bda6a667a3563e0"
+      },
+      {
+        "filename": "11_smote.png",
+        "sha256": "0ebde69b086120b16926234710f15f74263c39301333d568ca79ef5622e947f4"
+      },
+      {
+        "filename": "12_pr_curves.png",
+        "sha256": "51b31369488e091b14fa9ac7a9cc9a717ec122ecc6532d966f475926f802561b"
+      },
+      {
+        "filename": "13_roc_curves.png",
+        "sha256": "afbbb368d17a9002d917fe1a228f6388f178b14a3f223d7b75a255f205eacb74"
+      },
+      {
+        "filename": "14_confusion_matrices.png",
+        "sha256": "6eb2880eac5cf90c09e625fac5a7d2957d42e994415128443dd8a84e1755eb79"
+      },
+      {
+        "filename": "15_feature_importances.png",
+        "sha256": "f78104306611d5d7b0f7ab22ad8828c1a994e0404bde935dd851cf6f7c2eea44"
+      },
+      {
+        "filename": "16_threshold_analysis.png",
+        "sha256": "d384a440a5d88b8696cff02ad1604c33e091f8eb4ca116405b7acc6991040783"
+      },
+      {
+        "filename": "17_model_comparison.png",
+        "sha256": "d86e15f419c5be562068228b9f67a28107913fa901959ea41c2233e28447bc77"
+      },
+      {
+        "filename": "18_training_history.png",
+        "sha256": "20bb4c9d3182e9dd438ebfcae8f112b39e5fbbf3c23ee9dfcf45f81f5c42b517"
+      },
+      {
+        "filename": "19_reconstruction_error.png",
+        "sha256": "3e6e11e599b2259597192d8a95221e4ab30f05e50f576196570a1a067cde8f5d"
+      },
+      {
+        "filename": "20_threshold_roc_pr.png",
+        "sha256": "82959f985923aed83cdaebb19047d1588f45b3adb2516d405245d216b0778915"
+      },
+      {
+        "filename": "21_ae_confusion_matrix.png",
+        "sha256": "7d7816c2198f61cb363ca41c0418f989e3736b54b1ba18f19757fa601a779dcc"
+      },
+      {
+        "filename": "22_ae_vs_baselines.png",
+        "sha256": "9e1e6a2d1e6993deda2c12b608e4c10842d17cdbaad6ceadfa898ae75fd0db3a"
+      },
+      {
+        "filename": "23_latent_space.png",
+        "sha256": "c93a801622ebd349bcc3555f3a8b467df8cbf51d6d7240d22c7b8e641512bfee"
+      },
+      {
+        "filename": "24_ollama_analysis.png",
+        "sha256": "e21026a974f06d52503d8b1221e6fdbf049de547ad959c65094fae956583ba52"
+      },
+      {
+        "filename": "25_explanation_examples.png",
+        "sha256": "93f3732b97212cb8933faf9644541d06c51e1667cb6df17323846ac15056d59d"
+      },
+      {
+        "filename": "26_shap_rf_smote_bar.png",
+        "sha256": "b71d43d4de73fd04b78595c3daa007ddda9d69b97d7264a28bdd24eba165abd0"
+      },
+      {
+        "filename": "27_shap_rf_smote_beeswarm.png",
+        "sha256": "f569a20bccd28754d4a380ae5a4ba8e5dd5628cf8cf2e307852ed59326290fdf"
+      },
+      {
+        "filename": "28_shap_lr_smote_bar.png",
+        "sha256": "7712b39b6b5e757cc3938e37d22104921e1fe18216c598ecc623a30750c92795"
+      },
+      {
+        "filename": "29_shap_ae_bar.png",
+        "sha256": "46c253d5f49e608800a394403376ae6668d67b39cda3a7ae75cb44173becd155"
+      },
+      {
+        "filename": "30_shap_comparison_all.png",
+        "sha256": "7599bd15895489c9934ac68eec8a7ad495fb5b86fc7875b819e9ecc103e8ecac"
+      },
+      {
+        "filename": "31_lime_rf_smote.png",
+        "sha256": "0ba262d5b158528038ba7d79ccc4ca62cf43af24de29072e0b45a952eaedfe5e"
+      },
+      {
+        "filename": "32_lime_ae.png",
+        "sha256": "62a50428e7651751ec217192d26b2758c078f25eef0a5d7ed8691a544bf5c169"
+      },
+      {
+        "filename": "33_shap_waterfall_single.png",
+        "sha256": "ad7619d2cdaf1610aa6fbcd5e341ee38e6dbc3d6f244f09f6755e86a7b2d2d6e"
+      },
+      {
+        "filename": "34_shap_vs_lime.png",
+        "sha256": "654200e27536799146fabad7cb92c86179731209375bdd264a4132adeb670e40"
+      },
+      {
+        "filename": "35_explainability_dashboard.png",
+        "sha256": "db6ba1f15ad73fd901642465e1cb60f4b5bcd53c83683718ba4521f39e660ee0"
+      }
+    ],
+    "eda_report_json": {
+      "filename": "eda_report.json",
+      "sha256": "46652d13deae71d42b54d67e4695e07aaa1626fa2913df17b3d2dde98e8d6d53"
+    }
   }
 }
