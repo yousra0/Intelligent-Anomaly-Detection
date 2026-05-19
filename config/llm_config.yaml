@@ -1,0 +1,55 @@
+# config/llm_config.yaml
+# ============================================================
+# Configuration LLM via API cloud (remplace ollama_config.yaml)
+# Aucune ressource locale requise — APIs gratuites
+# ============================================================
+
+# ── Provider actif ───────────────────────────────────────────
+# Choisir : groq | gemini | huggingface
+# Recommandation : groq (le plus rapide et le plus fiable en gratuit)
+active_provider: "groq"
+provider: "groq"
+
+# ── Clés API ─────────────────────────────────────────────────
+# Remplir UNE SEULE clé (celle du provider actif)
+# Ne jamais committer ces clés dans git !
+           
+api_keys:
+  groq: ${GROQ_API_KEY}    # https://console.groq.com (gratuit)
+  gemini: ${GEMINI_API_KEY}    # https://makersuite.google.com (gratuit)
+  huggingface: ${HF_API_KEY}    # https://huggingface.co/settings/tokens
+
+# ── Modèles par provider ──────────────────────────────────────
+models:
+  groq: "llama-3.3-70b-versatile"       # Rapide, 70B params, très bon en français
+  gemini: "gemini-1.5-flash"           # Google, multimodal, genereux en gratuit
+  huggingface: "mistralai/Mistral-7B-Instruct-v0.2"
+
+# ── Limites gratuites (pour référence) ───────────────────────
+# groq        : 14 400 req/jour | 6 000 tokens/min | 500 000 tokens/jour
+# gemini      : 1 500 req/jour  | 1 000 000 tokens/min
+# huggingface : variable selon modèle
+
+# ── Paramètres de génération ─────────────────────────────────
+generation:
+  temperature : 0.1          # Faible = réponses déterministes et cohérentes
+  max_tokens  : 400          # Suffisant pour le JSON de sortie
+  timeout     : 30           # APIs cloud = rapides (vs 90s pour Ollama local)
+  top_p       : 0.9
+
+# ── Pipeline d'explication ───────────────────────────────────
+pipeline:
+  top_k_features : 3         # Features à inclure dans chaque explication
+  max_explain    : 20        # Transactions max à expliquer par run
+  batch_verbose  : true
+
+# ── Sorties ──────────────────────────────────────────────────
+output:
+  explanations_file : "outputs/reports/explanations.json"
+  summary_file      : "outputs/reports/llm_summary.json"
+  figures_dir       : "outputs/figures/"
+
+
+
+
+
