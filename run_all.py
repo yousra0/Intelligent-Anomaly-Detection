@@ -27,8 +27,9 @@ NOTEBOOKS = [
     ("02", "notebooks/02_data_preparation.ipynb"),
     ("03", "notebooks/03_baseline_models.ipynb"),
     ("04", "notebooks/04_autoencoder.ipynb"),
-    ("05", "notebooks/05_llm_integration.ipynb"),
-    ("06", "notebooks/06_shap_lime.ipynb"),
+    ("05", "notebooks/06_shap_lime.ipynb"),
+    ("06", "notebooks/05_llm_integration.ipynb"),
+    
 ]
 
 # ── Fichiers src/ à valider + quel(s) notebook(s) les utilise(nt) ─────────────
@@ -148,7 +149,7 @@ def main():
             break
         print()
 
-    # ── Résumé ─────────────────────────────────────────────────────────────────
+    # ── Résumé ───
     total = round(time.time() - total_start, 1)
     print(f"{BOLD}{'='*58}{RESET}")
     print(f"{BOLD}  RÉSUMÉ FINAL{RESET}")

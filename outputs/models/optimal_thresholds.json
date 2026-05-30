@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-05-19T09:40:20.793916",
+  "timestamp": "2026-05-30T19:41:42.623302",
   "source": "NB03_baseline_models.ipynb",
   "val_metrics": {
     "n_val": 30000,
@@ -11,7 +11,7 @@
     "RF_balanced": 0.6234509387008316,
     "RF_smote": 0.6291040362527268,
     "XGB_smote": 0.3547244966030121,
-    "IsoForest": 0.7728890001259492
+    "IsoForest": 0.7841846476958692
   },
   "description": "Seuils optimaux par modèle, maximisant F-beta (beta=2) sur validation set"
 }

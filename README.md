@@ -60,7 +60,7 @@ anomaly_detection_project/
 |- run_all.py
 |- config/
 |  |- config.yaml
-|  |- ollama_config.yaml
+|  |- llm_config.yaml
 |- data/
 |  |- raw/
 |  |  |- dataset_orig.csv
@@ -100,7 +100,7 @@ anomaly_detection_project/
 |  |- pipeline/
 |  |- utils/
 |  |- visualization/
-|  |- ollama_integration/
+|  |- llm_integration/
 |- tests/
 ```
 
@@ -112,7 +112,7 @@ anomaly_detection_project/
 - [src/pipeline](src/pipeline): orchestration entrainement et inference.
 - [src/utils](src/utils): metriques, evaluation et utilitaires anomalies.
 - [src/visualization](src/visualization): generation des figures et graphiques de suivi.
-- [src/ollama_integration](src/ollama_integration): aide a la generation d'explications.
+- [src/llm_integration](src/llm_integration): aide a la generation d'explications.
 
 ## Principales sorties generees
 
@@ -135,12 +135,12 @@ Fichiers de tests:
 - [tests/test_models.py](tests/test_models.py)
 - [tests/test_visualization.py](tests/test_visualization.py)
 - [tests/test_utils.py](tests/test_utils.py)
-- [tests/test_ollama.py](tests/test_ollama.py)
+- [tests/test_llm.py](tests/test_llm.py)
 
 ## Notes importantes
 
-- Les fichiers [config/config.yaml](config/config.yaml) et [config/ollama_config.yaml](config/ollama_config.yaml)
-	sont presents mais actuellement vides. Si vous souhaitez piloter davantage le pipeline par configuration,
+- Les fichiers [config/config.yaml](config/config.yaml) et [config/llm_config.yaml](config/llm_config.yaml)
+	 sont presents mais actuellement vides. Si vous souhaitez piloter davantage le pipeline par configuration,
 	vous pouvez y centraliser vos parametres (chemins, hyperparametres, seuils, options d'inference).
 - [src/main.py](src/main.py) est present mais vide. Le point d'entree principal recommande pour le moment
 	est [run_all.py](run_all.py) ou l'execution notebook par notebook.
