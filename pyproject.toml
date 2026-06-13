@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ml_core"
+version = "0.1.0"
+description = "Cœur ML du projet de détection d'anomalies financières (modèles, feature engineering, explicabilité, LLM) — packagé depuis src/ pour réutilisation par le backend FastAPI."
+requires-python = ">=3.10"
+
+# Le code vit dans src/ (utilisé tel quel par les notebooks via `import src...`).
+# On l'expose AUSSI sous le nom de package `ml_core` pour le backend, sans
+# déplacer aucun fichier : package-dir remappe la racine du package -> src,
+# et on liste explicitement les sous-packages (forme fiable pour le remap,
+# contrairement à packages.find qui aplatit les sous-packages).
+[tool.setuptools]
+package-dir = {ml_core = "src"}
+packages = [
+    "ml_core",
+    "ml_core.models",
+    "ml_core.utils",
+    "ml_core.llm_integration",
+    "ml_core.feature_engineering",
+    "ml_core.explainability",
+    "ml_core.preprocessing",
+    "ml_core.monitoring",
+    "ml_core.pipeline",
+    "ml_core.visualization",
+]

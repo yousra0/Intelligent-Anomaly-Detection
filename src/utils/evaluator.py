@@ -181,6 +181,76 @@ def print_metrics_report(
     print(sep)
 
 
+def find_optimal_threshold_cost(
+    y_true : np.ndarray | pd.Series,
+    y_score: np.ndarray | pd.Series,
+    fn_cost: float = 50_000.0,
+    fp_cost: float = 500.0,
+) -> tuple[float, float, dict]:
+    """
+    Trouve le seuil qui minimise le coût total métier (en TND).
+
+    Coût total = FN × fn_cost + FP × fp_cost
+
+    Dans un contexte fraude financière, rater une fraude (FN) coûte
+    bien plus cher qu'une fausse alerte (FP), d'où fn_cost >> fp_cost.
+
+    Args:
+        y_true:   Labels réels (0/1).
+        y_score:  Scores de probabilité.
+        fn_cost:  Coût unitaire d'un faux négatif (TND, défaut 50 000).
+        fp_cost:  Coût unitaire d'un faux positif (TND, défaut 500).
+
+    Returns:
+        (seuil_optimal, coût_min, détail_dict)
+    """
+    y_true  = np.asarray(y_true)
+    y_score = np.asarray(y_score)
+
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_score)
+    n_pos = y_true.sum()
+    n_neg = len(y_true) - n_pos
+
+    costs = []
+    for p, r, t in zip(precisions[:-1], recalls[:-1], thresholds):
+        fn = int(round(n_pos * (1 - r)))           # fraudes manquées
+        fp = int(round(fn / max(p, 1e-9) - fn)) if p > 0 else int(n_neg)
+        total = fn * fn_cost + fp * fp_cost
+        costs.append((total, t, fn, fp, r, p))
+
+    best = min(costs, key=lambda x: x[0])
+    total_cost, threshold, fn, fp, recall, precision = best
+
+    detail = {
+        "threshold_cost"  : round(threshold, 6),
+        "total_cost_tnd"  : round(total_cost, 2),
+        "fn"              : fn,
+        "fp"              : fp,
+        "fn_cost_unit"    : fn_cost,
+        "fp_cost_unit"    : fp_cost,
+        "fn_total_cost"   : round(fn * fn_cost, 2),
+        "fp_total_cost"   : round(fp * fp_cost, 2),
+        "recall_at_cost"  : round(recall, 4),
+        "precision_at_cost": round(precision, 4),
+    }
+    return float(threshold), float(total_cost), detail
+
+
+def print_cost_report(detail: dict) -> None:
+    """Affiche le rapport de coût métier issu de find_optimal_threshold_cost()."""
+    sep = "=" * 58
+    print(sep)
+    print("  OPTIMISATION PAR COÛT MÉTIER (TND)")
+    print(sep)
+    print(f"  Seuil optimal (coût)  : {detail['threshold_cost']:.4f}")
+    print(f"  Coût total minimal    : {detail['total_cost_tnd']:>12,.0f} TND")
+    print(f"  ├─ FN ({detail['fn']:>4} fraudes manquées)  : {detail['fn_total_cost']:>12,.0f} TND")
+    print(f"  └─ FP ({detail['fp']:>4} fausses alertes)   : {detail['fp_total_cost']:>12,.0f} TND")
+    print(f"  Recall à ce seuil     : {detail['recall_at_cost']:.4f}")
+    print(f"  Precision à ce seuil  : {detail['precision_at_cost']:.4f}")
+    print(sep)
+
+
 def compare_models(metrics_list: list[dict]) -> pd.DataFrame:
     """
     Compare plusieurs modèles dans un DataFrame trié par Recall décroissant.

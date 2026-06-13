@@ -1,7 +1,7 @@
 """
 ml_models.py
 ============
-Modèles baseline pour la détection de fraude PaySim.
+Modèles baseline pour la détection de fraude sur donnees client.
 
 Deux modèles supervisés classiques, utilisés comme référence avant
 les approches Deep Learning (AutoEncoder, LSTM) :

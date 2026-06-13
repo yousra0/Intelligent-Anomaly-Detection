@@ -1,11 +1,16 @@
 {
   "dataset": {
-    "name": "PaySim Synthetic Financial Fraud Dataset",
+    "name": "Client Fraud Dataset PwC Tunisie",
     "source_file": "dataset_orig.csv",
-    "sample_size": 200000,
     "sampling_method": "stratified_split",
     "random_state": 42,
-    "n_columns": 18
+    "total_rows": 200000,
+    "total_columns": 18,
+    "sample_size": 200000,
+    "fraud_count": 258,
+    "non_fraud_count": 199742,
+    "fraud_rate_pct": 0.129,
+    "imbalance_ratio": 774.2
   },
   "reproducibility": {
     "split_trace": {
@@ -24,7 +29,7 @@
     "fraud_rate_pct": 0.129,
     "imbalance_ratio": 774.2
   },
-  "baseline_flagged_fraud": {
+  "baseline": {
     "tp": 1,
     "fn": 257,
     "fp": 0,
@@ -77,30 +82,83 @@
     "n_dest_also_cashout": 0,
     "pct_dest_also_cashout": 0.0
   },
-  "features_engineered": [
-    "hour",
-    "day",
-    "week",
-    "high_risk_hour",
-    "is_transfer_or_cashout",
-    "balance_diff_orig",
-    "dest_zero_balance"
-  ],
-  "feature_rationale": {
-    "balance_diff_orig": {
-      "keep": true,
-      "why": "Behavioural signal (account-drain pattern) observable at transaction time.",
-      "leakage_note": "Raw before/after balances are excluded; this delta is retained with caution and monitored in validation."
-    }
+  "features": {
+    "retained": [
+      "log_amount",
+      "step",
+      "hour",
+      "day",
+      "week",
+      "balance_diff_orig",
+      "high_risk_hour",
+      "is_transfer_or_cashout",
+      "dest_zero_balance",
+      "type_CASH_IN",
+      "type_CASH_OUT",
+      "type_DEBIT",
+      "type_PAYMENT",
+      "type_TRANSFER"
+    ],
+    "excluded": [
+      "nameOrig",
+      "nameDest",
+      "isFlaggedFraud",
+      "oldbalanceOrg",
+      "newbalanceOrig",
+      "oldbalanceDest",
+      "newbalanceDest"
+    ],
+    "to_log_transform": [
+      "amount"
+    ],
+    "to_one_hot": [
+      "type"
+    ],
+    "high_risk_hours": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      23
+    ],
+    "engineered": [
+      "hour",
+      "day",
+      "week",
+      "high_risk_hour",
+      "is_transfer_or_cashout",
+      "balance_diff_orig",
+      "dest_zero_balance"
+    ],
+    "rationale": {
+      "balance_diff_orig": {
+        "keep": true,
+        "why": "Behavioural signal (account-drain pattern) observable at transaction time.",
+        "leakage_note": "Raw before/after balances are excluded; this delta is retained with caution and monitored in validation."
+      }
+    },
+    "excluded_leakage": [
+      "oldbalanceOrg",
+      "newbalanceOrig",
+      "oldbalanceDest",
+      "newbalanceDest",
+      "nameOrig",
+      "nameDest"
+    ]
   },
-  "features_excluded_leakage": [
-    "oldbalanceOrg",
-    "newbalanceOrig",
-    "oldbalanceDest",
-    "newbalanceDest",
-    "nameOrig",
-    "nameDest"
-  ],
+  "top_correlations": {
+    "balance_diff_orig": 0.3662,
+    "dest_zero_balance": 0.1088,
+    "amount": 0.076,
+    "high_risk_hour": 0.0531,
+    "is_transfer_or_cashout": 0.0409
+  },
   "target_metrics": {
     "primary": "Recall",
     "secondary": [

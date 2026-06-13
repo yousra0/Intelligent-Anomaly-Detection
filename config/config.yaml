@@ -72,9 +72,27 @@ autoencoder:
   patience_lr:     5
   threshold_metric: "f1"               # métrique pour optimisation du seuil
 
+# ── Seuils de risque XGBoost (utilisés dans predictor.py) ────
+# CRITIQUE : xgb_score >= critique  |  ELEVE : >= eleve  |  FAIBLE : < eleve
+# Calibrés pour maximiser la capture des fraudes CRITIQUE tout en limitant les faux positifs.
+# Modifier ici = modifie l'affichage ET le filtrage dans toute l'app sans toucher au code.
+risk_thresholds:
+  critique: 0.80
+  eleve:    0.50
+
+# ── Matrice de coûts métier (en TND) ─────────────────────────
+# Utilisée pour l'optimisation du seuil basée sur le coût réel.
+# Coût_FN : perte moyenne par fraude non détectée (transaction + investigation)
+# Coût_FP : coût d'investigation d'une alerte injustifiée (temps analyste)
+# Seuil optimal = argmin(FN × cost_fn + FP × cost_fp)
+costs:
+  fn_cost: 50000    # TND — perte moyenne par fraude manquée
+  fp_cost: 500      # TND — coût investigation fausse alerte (~2h analyste)
+
 # ── Sorties ──────────────────────────────────────────────────
 output:
   models_dir:    "outputs/models/"
   reports_dir:   "outputs/reports/"
   figures_dir:   "outputs/figures/"
   figure_dpi:    150
+  audit_dir:     "outputs/audit_trail/"

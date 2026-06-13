@@ -1,7 +1,7 @@
 """
 preprocessor.py
 ===============
-Pipeline de préparation des données PaySim pour la modélisation.
+Pipeline de préparation des données client pour la modélisation.
 
 Responsabilités :
   1. Suppression des colonnes à risque de leakage / non-encodables

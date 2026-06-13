@@ -130,7 +130,7 @@ Je remercie également toute personne ayant facilité l'accès aux données, aux
 \chapter*{Résumé}
 \addcontentsline{toc}{chapter}{Résumé}
 
-Ce projet porte sur la détection intelligente d'anomalies financières à partir de données transactionnelles de type PaySim. L'objectif est de construire une chaîne complète et reproductible allant de l'analyse exploratoire des données à la préparation, puis à l'entraînement et à l'évaluation de plusieurs approches de détection.
+Ce projet porte sur la détection intelligente d'anomalies financières à partir de données transactionnelles d'un client PwC Tunisie. L'objectif est de construire une chaîne complète et reproductible allant de l'analyse exploratoire des données à la préparation, puis à l'entraînement et à l'évaluation de plusieurs approches de détection.
 
 Le travail compare des modèles supervisés de référence, notamment la régression logistique et la forêt aléatoire, à une approche non supervisée fondée sur un autoencoder entraîné uniquement sur les transactions légitimes. Compte tenu du fort déséquilibre des classes, des techniques de prétraitement adaptées ont été utilisées, telles que l'encodage des variables catégorielles, la normalisation, la gestion des variables à risque et le rééchantillonnage SMOTE pour certains modèles.
 
@@ -146,7 +146,7 @@ Afin d'améliorer l'interprétabilité, une intégration avec Ollama a été dé
 \chapter*{Abstract}
 \addcontentsline{toc}{chapter}{Abstract}
 
-This project focuses on intelligent anomaly detection in financial transactions using a PaySim-like dataset. The goal is to build a reproducible pipeline covering exploratory analysis, data preparation, model training, and evaluation.
+This project focuses on intelligent anomaly detection in financial transactions using client transaction data provided in a PwC Tunisia mission. The goal is to build a reproducible pipeline covering exploratory analysis, data preparation, model training, and evaluation.
 
 The study compares supervised baseline models, namely logistic regression and random forest, with an unsupervised autoencoder trained only on legitimate transactions. Because of the severe class imbalance, tailored preprocessing steps were applied, including categorical encoding, normalization, risk-oriented feature engineering, and SMOTE for selected models.
 
@@ -208,7 +208,7 @@ Ce chapitre a posé le cadre du projet et défini les objectifs. La suite du rap
 \chapter{Données et étude de l'existant}
 
 \section{Jeu de données}
-Le projet s'appuie sur des données de type PaySim représentant des transactions financières simulées. Les variables décrivent notamment le type d'opération, le montant, les soldes avant et après transaction, ainsi que plusieurs variables temporelles et comportementales.
+Le projet s'appuie sur des données transactionnelles client représentant des opérations financières réelles ou anonymisées. Les variables décrivent notamment le type d'opération, le montant, les soldes avant et après transaction, ainsi que plusieurs variables temporelles et comportementales.
 
 \section{Caractéristiques du problème}
 Le jeu de données présente un fort déséquilibre de classes. Les transactions frauduleuses représentent une part très faible du volume total, ce qui impose d'utiliser des métriques adaptées telles que le rappel, la précision, le F1-score et les courbes PR.

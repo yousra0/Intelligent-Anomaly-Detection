@@ -117,13 +117,13 @@ def load_best_baseline_ml(report_path=None) -> dict:
         une gestion silencieuse retourne les hardcoded defaults.
     """
     _default = {
-        "recall":    0.7949,
-        "precision": 0.8158,
-        "f1":        0.8052,
-        "pr_auc":    0.8405,
-        "roc_auc":   0.9940,
-        "model":     "RF_smote",
-        "threshold": 0.6291,
+        "recall":    0.8462,
+        "precision": 0.8250,
+        "f1":        0.8354,
+        "pr_auc":    0.8677,
+        "roc_auc":   0.9975,
+        "model":     "XGB_smote",
+        "threshold": 0.3547,
     }
     
     if report_path is None:

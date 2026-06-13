@@ -4,7 +4,7 @@ import pandas as pd
 def add_hour_feature(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extract hour from step.
-    In PaySim dataset: 1 step = 1 hour.
+    In the client dataset: 1 step = 1 hour.
     """
     out = df.copy()
     out["hour"] = out["step"] % 24
@@ -23,7 +23,7 @@ def add_day_feature(df: pd.DataFrame) -> pd.DataFrame:
 def add_week_feature(df: pd.DataFrame) -> pd.DataFrame:
     """
     Extract week index from step.
-    In PaySim dataset: 1 week = 168 steps.
+    In the client dataset: 1 week = 168 steps.
     """
     out = df.copy()
     out["week"] = out["step"] // 168

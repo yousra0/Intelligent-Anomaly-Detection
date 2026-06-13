@@ -123,7 +123,8 @@
     "imbalance_ratio": 772,
     "fraud_rate_train_pct": 0.129287,
     "smote_ratio": 0.1,
-    "n_smote_fraud": 13981,
+    "smote_n_fraud": 13981,
+    "X_smote_is_scaled": true,
     "contamination_rate": 0.001293
   }
 }

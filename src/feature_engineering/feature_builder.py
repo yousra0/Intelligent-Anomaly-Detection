@@ -1,7 +1,7 @@
 """
 feature_builder.py
 ==================
-Feature engineering pour la détection de fraude PaySim.
+Feature engineering pour la détection de fraude sur donnees client.
 
 7 features dérivées, toutes validées dans 01_data_understanding.ipynb :
 
@@ -53,7 +53,7 @@ def add_temporal_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Crée hour, day, week depuis la colonne ``step``.
 
-    PaySim : 1 step = 1 heure  →  simulation sur 31 jours (743 steps max).
+    Le champ step est interprete comme une granularite horaire dans le dataset.
 
     Returns:
         DataFrame avec 3 nouvelles colonnes : hour (0-23), day (0-30), week (0-4).
@@ -125,7 +125,7 @@ def build_features(
         5. add_dest_zero_balance       → dest_zero_balance
 
     Args:
-        df: DataFrame PaySim brut (colonnes originales attendues).
+        df: DataFrame brut (colonnes originales attendues).
         high_risk_hours: Si None, utilise HIGH_RISK_HOURS de l'EDA.
 
     Returns:
@@ -191,3 +191,4 @@ def validate_features(df: pd.DataFrame, target_col: str = "isFraud") -> dict:
         }
 
     return results
+

@@ -1,6 +1,6 @@
 # Intelligent Anomaly Detection
 
-Pipeline complet de detection d'anomalies/fraude base sur des donnees transactionnelles.
+Pipeline complet de detection d'anomalies/fraude base sur des donnees transactionnelles d'un client PwC Tunisie.
 Le projet couvre toute la chaine: EDA, preparation des donnees, modeles baseline,
 autoencoder, evaluation et export des artefacts (rapports, modeles, figures).
 

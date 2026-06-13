@@ -6,7 +6,7 @@ import pandas as pd
 
 def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
     """Read CSV while handling common delimiters (, ; \t)."""
-    # Fast path: standard comma-separated CSV (PaySim default)
+    # Fast path: standard comma-separated CSV (default client export)
     df = pd.read_csv(path, encoding="utf-8")
 
     # If parsing produced a single merged column, retry with alternate delimiters.
@@ -22,7 +22,7 @@ def _read_csv_with_fallback(path: Path) -> pd.DataFrame:
 def load_data(path, sample: bool = False, sample_size: int = 200_000):
     
     """
-    Charge le dataset PaySim depuis CSV ou Excel.
+    Charge le dataset client depuis CSV ou Excel.
     
 
     Args:

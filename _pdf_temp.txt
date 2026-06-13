@@ -1,0 +1,277 @@
+=== PAGE 1 ===
+ 
+ 
+Page de garde  
+Utiliser le modèle fourni avec ce guide. 
+Forme générale du rapport 
+Le rapport de fin d’études doit comporter
+L'objectif du rapport est de présenter le travail réalisé durant le
+et de mettre en lumière les réalisations et
+Le stage du projet de fin d’études doit revêt
+fondements théoriques et une méthodologie rigoureuse. Par ailleurs, il est demandé de ne 
+parler que du travail réalisé. La descriptio
+doit se focaliser sur une présentation 
+de fin d’études.  
+Consignes pour le contenu du rapport 
+Contenu  
+Le rapport doit avant tout faire état d'une problématique à déterminer 
+projet de fin d’études. Le gros du travail consiste à déterminer précisément la
+que l'élève-ingénieur a joué au sein de la structure qu'il a intégrée :
+ quelle était sa mission ? 
+ si son travail lui a permis de résoudre la p
+projet de fin d’études  
+ par quels moyens il y est parvenu
+Généralement, le rapport doit également aborder les tâches quotid
+l’élève-ingénieur durant son stage de
+l'intérêt du  stage de projet de fin d’études
+personnelle. (Quel type d'expérience a
+l'entreprise et qu'est-ce que l'entreprise lui a appo
+projet de fin d’études ont-ils bien été atteints aussi bien pour l'entreprise 
+ingénieur ?)  
+Les Remerciements  
+Il est d’usage de mettre également une page pour remercier tous ceux envers qui 
+redevables et qui vous ont aidé durant le projet de fin d’études. 
+ 
+Rapport de stage 
+Note pédagogique 
+Utiliser le modèle fourni avec ce guide.  
+Forme générale du rapport  
+’études doit comporter 40 pages environ (hors annexes). 
+L'objectif du rapport est de présenter le travail réalisé durant le stage du  projet de fin d’études 
+e en lumière les réalisations et les compétences acquises.  
+fin d’études doit revêtir un caractère scientifique. Il doit reposer sur des 
+fondements théoriques et une méthodologie rigoureuse. Par ailleurs, il est demandé de ne 
+parler que du travail réalisé. La description de l'entreprise, après une présentation générale 
+une présentation personnelle du service dans lequel a été effectué le projet 
+Consignes pour le contenu du rapport  
+Le rapport doit avant tout faire état d'une problématique à déterminer au début du stage du
+projet de fin d’études. Le gros du travail consiste à déterminer précisément la
+a joué au sein de la structure qu'il a intégrée : 
+si son travail lui a permis de résoudre la problématique définie en début du stage de son
+r quels moyens il y est parvenu ? 
+Généralement, le rapport doit également aborder les tâches quotidiennes effectuées par 
+stage de projet de fin d’études. Enfin, il doit po
+ojet de fin d’études dans une optique à la fois professionnelle et 
+personnelle. (Quel type d'expérience a-t-il acquise et dans quels domaines ? Qu'a
+ce que l'entreprise lui a apporté ? Précisément, si les objectifs du 
+ils bien été atteints aussi bien pour l'entreprise 
+Il est d’usage de mettre également une page pour remercier tous ceux envers qui 
+redevables et qui vous ont aidé durant le projet de fin d’études.  
+ AZ2021 
+1 
+(hors annexes).  
+projet de fin d’études 
+doit reposer sur des 
+fondements théoriques et une méthodologie rigoureuse. Par ailleurs, il est demandé de ne 
+n de l'entreprise, après une présentation générale 
+personnelle du service dans lequel a été effectué le projet 
+au début du stage du 
+projet de fin d’études. Le gros du travail consiste à déterminer précisément la place et le rôle 
+inie en début du stage de son 
+iennes effectuées par 
+projet de fin d’études. Enfin, il doit pouvoir évaluer 
+dans une optique à la fois professionnelle et 
+il acquise et dans quels domaines ? Qu'a-t-il apporté à 
+rté ? Précisément, si les objectifs du stage de 
+ils bien été atteints aussi bien pour l'entreprise que pour l’élève-
+Il est d’usage de mettre également une page pour remercier tous ceux envers qui vous êtes 
+=== PAGE 2 ===
+ 
+ 
+Introduction générale 
+ L’introduction générale présente le sujet par des renseignements précis et pose le problème à 
+résoudre sans évocation de résultats. Une fois le problème posé avec clarté, les grands traits 
+de la démarche vers l’objectif sont décrits. En effet, le contenu 
+brièvement.  
+Développement des chapitres 
+C’est la partie essentielle du rapport. Le rapport est généralement constitué en chapitres, mais 
+aussi peut être subdivisé en parties et sous
+rester lié avec ce qui précède et avec ce qui suit. Le contenu et l’enchaînement des chapitres 
+doivent être conformes à la méthodologie suivie pour l’élaboration du projet (en ce qui 
+concerne les étapes et les modèles). Chaque chapitre comprend : 
+présente le contenu du chapitre ; 
+conclusion qui résume les principaux résultats du chapitre et qui introduit le chapitre suivant. 
+Description du travail proposé. 
+Cette partie doit exposer de manière concise le(s) problème(s) posé(s). C'est dans cette partie 
+qu'il faut présenter de manière pédagogique le projet ou le domaine dans lequel s'insère le 
+travail en pensant que le lecteur ne sera pas forcément un spécialiste de ce domaine e
+connaît pas le projet en question. Il est important de situer le travail qui a été confié dans un 
+contexte plus général.  
+Description du travail réalisé. 
+Cette partie (qui peut donner lieu à plusieurs chapitres suivant la nature du projet de fi
+d’études) doit en particulier comporter le planning du
+la description des difficultés rencontrées ou des changements apportés aux objectifs initiaux. 
+Cette partie doit rester très claire et compréhensible : il fa
+l'incorporation de lignes de code par exemple. Les détails techniques doivent être reportés en 
+annexe. Un planning de travail doit figurer dans le rapport, il est conseillé de le placer à la fin 
+de la description du travail sur 
+Conclusion.  
+Dans la conclusion, il sera préférable de mettre en valeur le travail et les domaines où 
+l’étudiant a progressé durant ce
+aussi celle qui laisse entrevoir des perspe
+La conclusion générale doit comprendre les points suivants : 
+complète annoncée par l’introduction générale ; 
+problèmes posés au début ; - 
+apports (techniques et autres) 
+sujet ; ouverture sur d'autres expériences ou recherches, pour un développement de vos 
+L’introduction générale présente le sujet par des renseignements précis et pose le problème à 
+résoudre sans évocation de résultats. Une fois le problème posé avec clarté, les grands traits 
+de la démarche vers l’objectif sont décrits. En effet, le contenu de chaque chapitre est annoncé 
+Développement des chapitres  
+C’est la partie essentielle du rapport. Le rapport est généralement constitué en chapitres, mais 
+aussi peut être subdivisé en parties et sous-parties. Chaque chapitre est structuré de
+rester lié avec ce qui précède et avec ce qui suit. Le contenu et l’enchaînement des chapitres 
+doivent être conformes à la méthodologie suivie pour l’élaboration du projet (en ce qui 
+concerne les étapes et les modèles). Chaque chapitre comprend : - Une introduction qui 
+présente le contenu du chapitre ; - Le développement du contenu du chapitre ; 
+conclusion qui résume les principaux résultats du chapitre et qui introduit le chapitre suivant. 
+Description du travail proposé.  
+exposer de manière concise le(s) problème(s) posé(s). C'est dans cette partie 
+qu'il faut présenter de manière pédagogique le projet ou le domaine dans lequel s'insère le 
+travail en pensant que le lecteur ne sera pas forcément un spécialiste de ce domaine e
+connaît pas le projet en question. Il est important de situer le travail qui a été confié dans un 
+Description du travail réalisé.  
+Cette partie (qui peut donner lieu à plusieurs chapitres suivant la nature du projet de fi
+d’études) doit en particulier comporter le planning du stage du projet de fin d’études
+la description des difficultés rencontrées ou des changements apportés aux objectifs initiaux. 
+Cette partie doit rester très claire et compréhensible : il faut en particulier proscrire 
+l'incorporation de lignes de code par exemple. Les détails techniques doivent être reportés en 
+annexe. Un planning de travail doit figurer dans le rapport, il est conseillé de le placer à la fin 
+de la description du travail sur une page complète.  
+Dans la conclusion, il sera préférable de mettre en valeur le travail et les domaines où 
+l’étudiant a progressé durant ce stage de projet de fin d’études. Une bonne conclusion est 
+aussi celle qui laisse entrevoir des perspectives.  
+La conclusion générale doit comprendre les points suivants : - Récapitulation de la démarche 
+complète annoncée par l’introduction générale ; - Présentation des résultats : Réponses aux 
+ Les problèmes rencontrés lors de la réalisation du projet 
+apports (techniques et autres) - Perspectives d’approfondissement ou d’élargissement du 
+uverture sur d'autres expériences ou recherches, pour un développement de vos 
+ AZ2021 
+2 
+L’introduction générale présente le sujet par des renseignements précis et pose le problème à 
+résoudre sans évocation de résultats. Une fois le problème posé avec clarté, les grands traits 
+de chaque chapitre est annoncé 
+C’est la partie essentielle du rapport. Le rapport est généralement constitué en chapitres, mais 
+parties. Chaque chapitre est structuré de façon à 
+rester lié avec ce qui précède et avec ce qui suit. Le contenu et l’enchaînement des chapitres 
+doivent être conformes à la méthodologie suivie pour l’élaboration du projet (en ce qui 
+Une introduction qui 
+Le développement du contenu du chapitre ; - Une 
+conclusion qui résume les principaux résultats du chapitre et qui introduit le chapitre suivant.  
+exposer de manière concise le(s) problème(s) posé(s). C'est dans cette partie 
+qu'il faut présenter de manière pédagogique le projet ou le domaine dans lequel s'insère le 
+travail en pensant que le lecteur ne sera pas forcément un spécialiste de ce domaine et qu'il ne 
+connaît pas le projet en question. Il est important de situer le travail qui a été confié dans un 
+Cette partie (qui peut donner lieu à plusieurs chapitres suivant la nature du projet de fin 
+ojet de fin d’études ainsi que 
+la description des difficultés rencontrées ou des changements apportés aux objectifs initiaux. 
+ut en particulier proscrire 
+l'incorporation de lignes de code par exemple. Les détails techniques doivent être reportés en 
+annexe. Un planning de travail doit figurer dans le rapport, il est conseillé de le placer à la fin 
+Dans la conclusion, il sera préférable de mettre en valeur le travail et les domaines où 
+projet de fin d’études. Une bonne conclusion est 
+Récapitulation de la démarche 
+Présentation des résultats : Réponses aux 
+la réalisation du projet - Les 
+Perspectives d’approfondissement ou d’élargissement du 
+uverture sur d'autres expériences ou recherches, pour un développement de vos 
+=== PAGE 3 ===
+ 
+ 
+connaissances ou pour faire part à d'autres stagia
+être abordés.  
+Bibliographie  
+Les références doivent être complètes afin d’être utilisables par un lecteur. Il faut indiquer 
+le(s) nom(s) de(s) auteur(s), le titre, le nom de la revue ou du congrès, l’éditeur, la
+parution, le N° de la revue ou le lieu pour un congrès, les pages. Sur internet, en plus de 
+l’URL indiquer aussi le sujet et les auteurs (et si possible la date de parution). 
+Forme du Rapport  
+Plan du rapport  
+En termes de présentation, vous devez respecter les contraintes suivantes:  
+ Police : Times New Roman, en 12 pt
+ Page : Les marges par défaut des traitements de texte sont de 2
+ Pagination : vous devez tenir compte du fait que 
+Vous devez donc avoir une pagination correcte (i.e pas de page avec seulement trois 
+lignes), équilibrée (éviter les illustrations orphelines sur une page), avec les numéros de 
+page en bas à droite, sous la forme /
+ Impression : En cas d’impression, il est recommandé d’imprimer les pages en recto et 
+verso (pas de recto seul). 
+ Justification : à droite et à gauche.
+ Interligne : 1.15 
+ Titre du document : en 24
+ Titres : les titres des sections et sous
+décroissante en fonction de la profondeur de titre. 
+forme 1, 1.1, etc. L'espacement correspond à un retrait de 0,20 cm par rapport au 
+la page, 0,30 cm pour les retours à la ligne dans un titre, et un espacement de 0,20 cm 
+entre le numéro et le texte du titre.  
+ Mise en valeur du contenu :
+ou non, les conclusions ou élé
+ Figures : toute figure (tableau, graphique, illustration) doit comporter une légende et une 
+référence dans le texte. Les figures doivent être numérotées de manière cohérente en 
+fonction de leur type (Tab. 1, Graph. 1, 
+ Sources et bibliographie :
+définitions ou des analyses que vous reprenez dans vos documents. Les sources doivent 
+être citées et énumérées 
+« Bibliographie/Netographie
+ Citations : les citations courtes sont entourées de guillemets (« »).
+ Paragraphes : Les paragraphes commencent par un alinéa de première ligne de 0,50cm. 
+Eviter d’avoir trop d’espaces vides dans une page (en
+chapitre sur une page ne comportant que quelques lignes de texte).  
+connaissances ou pour faire part à d'autres stagiaires des domaines qui auraient pu également 
+Les références doivent être complètes afin d’être utilisables par un lecteur. Il faut indiquer 
+le(s) nom(s) de(s) auteur(s), le titre, le nom de la revue ou du congrès, l’éditeur, la
+parution, le N° de la revue ou le lieu pour un congrès, les pages. Sur internet, en plus de 
+l’URL indiquer aussi le sujet et les auteurs (et si possible la date de parution). 
+En termes de présentation, vous devez respecter les contraintes suivantes:   
+Times New Roman, en 12 pts. pour le corps du texte. 
+: Les marges par défaut des traitements de texte sont de 2,5 cm. 
+: vous devez tenir compte du fait que votre document peut être imprimé. 
+Vous devez donc avoir une pagination correcte (i.e pas de page avec seulement trois 
+lignes), équilibrée (éviter les illustrations orphelines sur une page), avec les numéros de 
+en bas à droite, sous la forme /. 
+: En cas d’impression, il est recommandé d’imprimer les pages en recto et 
+ 
+à droite et à gauche. 
+en 24 pt., centré. 
+les titres des sections et sous-sections doivent être en gras, de taille de caractère 
+ction de la profondeur de titre. Ils doivent être numérotés sous la 
+forme 1, 1.1, etc. L'espacement correspond à un retrait de 0,20 cm par rapport au 
+la page, 0,30 cm pour les retours à la ligne dans un titre, et un espacement de 0,20 cm 
+entre le numéro et le texte du titre.   
+Mise en valeur du contenu : les exemples sont en italique, les définitions sont encadrées 
+ou non, les conclusions ou éléments essentiels en gras.   
+toute figure (tableau, graphique, illustration) doit comporter une légende et une 
+référence dans le texte. Les figures doivent être numérotées de manière cohérente en 
+fonction de leur type (Tab. 1, Graph. 1, fig. 1, etc.).   
+Sources et bibliographie : il est évident que vous devez donner les sources des
+définitions ou des analyses que vous reprenez dans vos documents. Les sources doivent 
+et énumérées à la fin du document dans la section 
+Bibliographie/Netographie ».  
+: les citations courtes sont entourées de guillemets (« »). 
+: Les paragraphes commencent par un alinéa de première ligne de 0,50cm. 
+Eviter d’avoir trop d’espaces vides dans une page (en particulier éviter de terminer un 
+chapitre sur une page ne comportant que quelques lignes de texte).   
+ AZ2021 
+3 
+ires des domaines qui auraient pu également 
+Les références doivent être complètes afin d’être utilisables par un lecteur. Il faut indiquer 
+le(s) nom(s) de(s) auteur(s), le titre, le nom de la revue ou du congrès, l’éditeur, la date de 
+parution, le N° de la revue ou le lieu pour un congrès, les pages. Sur internet, en plus de 
+l’URL indiquer aussi le sujet et les auteurs (et si possible la date de parution).  
+ 
+votre document peut être imprimé. 
+Vous devez donc avoir une pagination correcte (i.e pas de page avec seulement trois 
+lignes), équilibrée (éviter les illustrations orphelines sur une page), avec les numéros de 
+: En cas d’impression, il est recommandé d’imprimer les pages en recto et 
+sections doivent être en gras, de taille de caractère 
+Ils doivent être numérotés sous la 
+forme 1, 1.1, etc. L'espacement correspond à un retrait de 0,20 cm par rapport au bord de 
+la page, 0,30 cm pour les retours à la ligne dans un titre, et un espacement de 0,20 cm 
+les exemples sont en italique, les définitions sont encadrées 
+toute figure (tableau, graphique, illustration) doit comporter une légende et une 
+référence dans le texte. Les figures doivent être numérotées de manière cohérente en 
+il est évident que vous devez donner les sources des 
+définitions ou des analyses que vous reprenez dans vos documents. Les sources doivent 
+dans la section 
+: Les paragraphes commencent par un alinéa de première ligne de 0,50cm. 
+particulier éviter de terminer un 

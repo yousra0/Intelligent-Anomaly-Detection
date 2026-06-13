@@ -23,30 +23,30 @@ BLUE   = "\033[94m"; BOLD   = "\033[1m";  RESET  = "\033[0m"
 
 # ── Notebooks dans l'ordre ─────────────────────────────────────────────────────
 NOTEBOOKS = [
-    ("01", "notebooks/01_data_understanding.ipynb"),
-    ("02", "notebooks/02_data_preparation.ipynb"),
-    ("03", "notebooks/03_baseline_models.ipynb"),
-    ("04", "notebooks/04_autoencoder.ipynb"),
-    ("05", "notebooks/06_shap_lime.ipynb"),
-    ("06", "notebooks/05_llm_integration.ipynb"),
-    
+    ("01", "notebooks/01_business_understanding.ipynb"),
+    ("02", "notebooks/02_data_understanding.ipynb"),
+    ("03", "notebooks/03_data_preparation.ipynb"),
+    ("04", "notebooks/04_baseline_models.ipynb"),
+    ("05", "notebooks/05_autoencoder.ipynb"),
+    ("06", "notebooks/06_shap_lime.ipynb"),
+    ("07", "notebooks/07_llm_integration.ipynb"),
 ]
 
 # ── Fichiers src/ à valider + quel(s) notebook(s) les utilise(nt) ─────────────
 SRC_MODULES = [
-    ("src.feature_engineering.feature_builder", "NB02"),
-    ("src.preprocessing.preprocessing",         "NB02"),
-    ("src.visualization.prep_plots",            "NB02"),
-    ("src.models.ml_models",                    "NB03"),
-    ("src.utils.evaluator",                     "NB03 + NB04 + NB06"),
-    ("src.utils.baseline_config",               "NB03 + NB04"),
-    ("src.visualization.model_plots",           "NB03"),
-    ("src.models.autoencoder",                  "NB04"),
-    ("src.visualization.autoencoder_plots",     "NB04"),
-    ("src.llm_integration",                     "NB05"),
-    ("src.llm_integration.llm_helper",          "NB05"),  
+    ("src.feature_engineering.feature_builder", "NB03"),
+    ("src.preprocessing.preprocessing",         "NB03"),
+    ("src.visualization.prep_plots",            "NB03"),
+    ("src.models.ml_models",                    "NB04"),
+    ("src.utils.evaluator",                     "NB04 + NB05 + NB06"),
+    ("src.utils.baseline_config",               "NB04 + NB05"),
+    ("src.visualization.model_plots",           "NB04"),
+    ("src.models.autoencoder",                  "NB05"),
+    ("src.visualization.autoencoder_plots",     "NB05"),
     ("src.explainability.shap_explainer",       "NB06"),
     ("src.explainability.lime_explainer",       "NB06"),
+    ("src.llm_integration",                     "NB07"),
+    ("src.llm_integration.llm_helper",          "NB07"),
 ]
 
 def check_src_modules() -> bool:
