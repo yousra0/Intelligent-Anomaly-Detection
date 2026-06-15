@@ -198,6 +198,37 @@ def _chart_amount_type(transactions: list[dict]) -> io.BytesIO:
     return _to_buf(fig)
 
 
+def _chart_score_dist(transactions: list[dict], threshold: float = 0.355) -> io.BytesIO:
+    """Histogram of AI risk scores — the most explanatory chart for non-technical auditors."""
+    scores = [float(t.get("xgb_score", 0)) for t in transactions] or [0.0]
+    normal     = [s for s in scores if s <  threshold]
+    suspicious = [s for s in scores if s >= threshold]
+    bins = [i / 20 for i in range(21)]
+
+    fig, ax = plt.subplots(figsize=(6.5, 3.5))
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor(_C_LGRAY)
+    ax.hist(normal,     bins=bins, color=_C_DARK,   alpha=0.85,
+            label=f"Normales ({len(normal):,})", edgecolor="white", linewidth=0.5)
+    ax.hist(suspicious, bins=bins, color=_C_ORANGE, alpha=0.90,
+            label=f"Suspectes ({len(suspicious):,})", edgecolor="white", linewidth=0.5)
+    ax.axvline(x=threshold, color=_C_RED, linestyle="--", linewidth=1.8,
+               label=f"Seuil IA = {threshold:.3f}")
+    ax.set_title(
+        "Distribution des indices de risque IA\n"
+        "(0 = transaction normale  |  1 = fraude quasi-certaine)",
+        fontsize=9, fontweight="bold", color=_C_DARK, pad=8,
+    )
+    ax.set_xlabel("Indice de risque (0 -> 1)", fontsize=8, color="#666666")
+    ax.set_ylabel("Nombre de transactions", fontsize=8, color="#666666")
+    ax.legend(fontsize=8, framealpha=0.7)
+    ax.tick_params(labelsize=8)
+    for sp in ["top", "right"]:
+        ax.spines[sp].set_visible(False)
+    plt.tight_layout(pad=0.4)
+    return _to_buf(fig)
+
+
 def _chart_shap(explain_results: list[dict]) -> io.BytesIO | None:
     totals: dict[str, float] = defaultdict(float)
     cnts:   dict[str, int]   = defaultdict(int)
@@ -261,27 +292,33 @@ _NS_W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
 
 def _replace_all(doc: Document, mapping: dict[str, str]) -> None:
-    """Replace all placeholders everywhere: VML textboxes, DrawingML anchors,
-    plain paragraph runs, run-split runs, and table cells."""
-    # Pass 1: every <w:t> in the entire body (handles VML v:textbox and wp:anchor)
-    for t in doc.element.body.iter(f"{{{_NS_W}}}t"):
-        if t.text:
-            for ph, val in mapping.items():
-                if ph in t.text:
-                    t.text = t.text.replace(ph, val)
+    """Replace placeholders in every <w:p> across the entire document body.
 
-    # Pass 2: run-split placeholders in doc paragraphs (Word splits {{...}} across runs)
-    for para in doc.paragraphs:
+    Word 365 splits {{key}} across multiple <w:r> elements with <w:proofErr>
+    spell-check markers between them.  Concatenating all run texts per paragraph,
+    replacing, then writing back to the first <w:t> handles this for every
+    context: VML v:textbox shapes, DrawingML anchors, and plain body paragraphs.
+    """
+    for p in doc.element.body.iter(f"{{{_NS_W}}}p"):
+        r_elems = p.findall(f"{{{_NS_W}}}r")
+        valid_t = [r.find(f"{{{_NS_W}}}t") for r in r_elems]
+        valid_t = [t for t in valid_t if t is not None]
+        if not valid_t:
+            continue
+
+        full = "".join(t.text or "" for t in valid_t)
+        if "{{" not in full:
+            continue
+
+        new_full = full
         for ph, val in mapping.items():
-            _replace_in_para(para, ph, val)
+            if ph in new_full:
+                new_full = new_full.replace(ph, val)
 
-    # Pass 3: run-split placeholders inside table cells
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    for ph, val in mapping.items():
-                        _replace_in_para(para, ph, val)
+        if new_full != full:
+            valid_t[0].text = new_full
+            for t in valid_t[1:]:
+                t.text = ""
 
 
 def _find_para(doc: Document, substr: str):
@@ -291,38 +328,31 @@ def _find_para(doc: Document, substr: str):
     return None
 
 
-def _insert_chart_after_label(doc: Document, label_substr: str,
-                               img_buf: io.BytesIO, width: float = 5.5) -> None:
-    """Insert chart image into the first empty paragraph after the label paragraph."""
-    label_para = _find_para(doc, label_substr)
-    if label_para is None:
-        return
-    paras = doc.paragraphs
-    try:
-        idx = paras.index(label_para)
-    except ValueError:
-        return
-
-    empty_paras: list = []
-    for para in paras[idx + 1: idx + 7]:
-        if not para.text.strip():
-            empty_paras.append(para)
-        else:
-            break
-
-    if not empty_paras:
-        run = label_para.add_run()
-        run.add_picture(img_buf, width=Inches(width))
-        return
-
-    # Add image to first empty paragraph
-    run = empty_paras[0].add_run()
+def _fill_para_with_chart(para, img_buf: io.BytesIO,
+                          doc: Document, width: float = 5.5) -> None:
+    """Clear a paragraph's text and insert a chart image inline.
+    Works on a pre-saved paragraph reference so it is immune to the
+    cleared-placeholder problem (placeholder already gone after _replace_all)."""
+    for r in para._element.findall(f"{{{_NS_W}}}r"):
+        t = r.find(f"{{{_NS_W}}}t")
+        if t is not None:
+            t.text = ""
+    for pe in list(para._element.findall(f"{{{_NS_W}}}proofErr")):
+        para._element.remove(pe)
+    run = para.add_run()
     run.add_picture(img_buf, width=Inches(width))
 
-    # Remove extra empty paragraphs after
-    for para in empty_paras[1:]:
-        p = para._element
-        p.getparent().remove(p)
+
+def _ensure_page_break_before(para) -> None:
+    """Add w:pageBreakBefore to paragraph properties so this paragraph
+    always starts on a new page regardless of prior content length."""
+    pPr = para._element.find(f"{{{_NS_W}}}pPr")
+    if pPr is None:
+        pPr = OxmlElement("w:pPr")
+        para._element.insert(0, pPr)
+    if pPr.find(f"{{{_NS_W}}}pageBreakBefore") is None:
+        pbk = OxmlElement("w:pageBreakBefore")
+        pPr.append(pbk)
 
 
 def _clear_empty_paras_after(doc: Document, ref_para, count: int = 9) -> None:
@@ -351,7 +381,7 @@ def _set_cell_bg(cell, hex_color: str) -> None:
 
 
 def _cell_text(cell, text: str, bold: bool = False,
-               color: RGBColor = None, size: int = 9,
+               color: RGBColor = None, size: int = 11,
                align: str = "center") -> None:
     cell.text = ""
     para = cell.paragraphs[0]
@@ -363,8 +393,66 @@ def _cell_text(cell, text: str, bold: bool = False,
         run.font.color.rgb = color
 
 
+def _no_borders_table(table) -> None:
+    """Remove all visible borders from a table."""
+    tblPr = table._tbl.find(qn("w:tblPr"))
+    if tblPr is None:
+        tblPr = OxmlElement("w:tblPr")
+        table._tbl.insert(0, tblPr)
+    bdr = OxmlElement("w:tblBorders")
+    for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        el = OxmlElement(f"w:{side}")
+        el.set(qn("w:val"),   "none")
+        el.set(qn("w:sz"),    "0")
+        el.set(qn("w:space"), "0")
+        el.set(qn("w:color"), "auto")
+        bdr.append(el)
+    tblPr.append(bdr)
+
+
+def _insert_charts_grid(doc: Document, anchor_elem,
+                         charts: list[tuple[io.BytesIO, str]],
+                         width_each: float = 2.9) -> None:
+    """Insert charts 2-per-row in a borderless table right after anchor_elem.
+    Each entry in charts is (image_buf, caption_label)."""
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    rows_data = [charts[i:i + 2] for i in range(0, len(charts), 2)]
+    table = doc.add_table(rows=len(rows_data), cols=2)
+    _no_borders_table(table)
+
+    for ri, pair in enumerate(rows_data):
+        for ci, (buf, label) in enumerate(pair):
+            buf.seek(0)
+            cell = table.cell(ri, ci)
+            # small caption above
+            cap = cell.paragraphs[0]
+            cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            cap_run = cap.add_run(label)
+            cap_run.bold = True
+            cap_run.font.size = Pt(9)
+            cap_run.font.color.rgb = RGB_DARK
+            # chart image
+            img_p = cell.add_paragraph()
+            img_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+            img_p.add_run().add_picture(buf, width=Inches(width_each))
+
+    anchor_elem.addnext(table._tbl)
+
+
+def _clear_paras_between(doc: Document, start_para, end_para) -> None:
+    """Remove every paragraph strictly between start_para and end_para."""
+    paras = doc.paragraphs
+    try:
+        si = paras.index(start_para) + 1
+        ei = paras.index(end_para)
+    except ValueError:
+        return
+    for para in paras[si:ei]:
+        para._element.getparent().remove(para._element)
+
+
 def _add_para_after(ref_elem, text: str = "", bold: bool = False,
-                    italic: bool = False, size: int = 10,
+                    italic: bool = False, size: int = 11,
                     color: RGBColor = None, indent: float = 0.0) -> OxmlElement:
     """Insert a new <w:p> element right after ref_elem. Returns the new element."""
     new_p   = OxmlElement("w:p")
@@ -418,7 +506,7 @@ def _add_table_after_para(doc: Document, ref_para,
     hdr_row = table.rows[0]
     for ci, (h, cell) in enumerate(zip(headers, hdr_row.cells)):
         _set_cell_bg(cell, "293854")
-        _cell_text(cell, h, bold=True, color=RGB_WHITE, size=8)
+        _cell_text(cell, h, bold=True, color=RGB_WHITE)
 
     # Data rows
     for ri, row_data in enumerate(rows):
@@ -426,12 +514,11 @@ def _add_table_after_para(doc: Document, ref_para,
         bg  = "F8F8F8" if ri % 2 == 0 else "FFFFFF"
         for ci, (val, cell) in enumerate(zip(row_data, row.cells)):
             _set_cell_bg(cell, bg)
-            # Last column = status (colored)
             if ci == n_cols - 1:
                 col = RGB_RED if "ALERTE" in val else (RGB_WARN if "ATTENTION" in val else RGB_GREEN)
-                _cell_text(cell, val, bold=True, color=col, size=8)
+                _cell_text(cell, val, bold=True, color=col)
             else:
-                _cell_text(cell, val, size=8)
+                _cell_text(cell, val)
 
     # Set column widths
     if col_widths:
@@ -500,43 +587,72 @@ def generate_pwc_docx_report(
     # ── Remplacement des placeholders ────────────────────────────────────────
     doc = Document(str(TEMPLATE_PATH))
 
-    # Trouver les paragraphes de reference AVANT modification
-    para_tx_text    = _find_para(doc, "{{transaction_text}}")
-    para_section04  = _find_para(doc, "04 Fiche")
-    para_section05  = _find_para(doc, "05 Recommandations")
-    para_section06  = _find_para(doc, "06 Glossaire")
+    # ── Références AVANT tout remplacement ───────────────────────────────────
+    para_analyse   = _find_para(doc, "{{analyse_text}}")
+    para_tx_text   = _find_para(doc, "{{transaction_text}}")
+    para_section02 = _find_para(doc, "02 Analyse")
+    para_section03 = _find_para(doc, "03 Transactions")
+    para_section04 = _find_para(doc, "04 Fiche")
+    para_section05 = _find_para(doc, "05 Recommandations")
+    para_section06 = _find_para(doc, "06 Glossaire")
+    para_rec       = _find_para(doc, "{{recommendations_text}}")
+    para_glo       = _find_para(doc, "{{glossaire_")
+
+    # ── Sauts de page entre sections (contenu = 1 page par section) ──────────
+    for sec_para in (para_section02, para_section03, para_section04,
+                     para_section05, para_section06):
+        if sec_para:
+            _ensure_page_break_before(sec_para)
 
     mapping = {
         "{{date}}":                  date_str,
         "{{resume_text}}":           resume_text,
         "{{analyse_text}}":          analyse_text,
         "{{transaction_text}}":      transaction_text,
+        # placeholders texte dynamiques : vidés -> contenu injecté après
+        "{{recommendations_text}}":  "",
+        "{{glossaire_ text }}":      "",
+        # placeholders graphiques : les paragraphes entre analyse et section03
+        # seront supprimés par _clear_paras_between, donc pas besoin de les vider ici
+        "{{reparation_transactions_graphes}}":  "",
+        "{{niveau_risque_graphes}}":            "",
+        "{{exposition_financière_graphes}}":    "",
+        # KPI numériques (boîtes VML)
         "{{taux_de_fraudes}}":       f"{rate:.2f}%",
-        "{{anomalies_détéctées}}": f"{n_fraud:,}",
+        "{{anomalies_détéctées}}":   f"{n_fraud:,}",
         "{{transactions_analysées}}": f"{n_tx:,}",
-        "{{montant_exposé}}":   _fmt_amount(amount_risk),
+        "{{montant_exposé}}":        _fmt_amount(amount_risk),
+        # jauge de risque
         "{{pourcentage}}":           f"{rate:.2f}%",
         "{{remarque}}":              RISK_LABEL[global_risk].upper(),
         "{{pourcentage_faible}}":    f"{n_faible / total * 100:.0f}%",
-        "{{pourcentage_elevé}}": f"{n_eleve / total * 100:.0f}%",
+        "{{pourcentage_elevé}}":     f"{n_eleve  / total * 100:.0f}%",
         "{{pourcentage_critique}}":  f"{n_critique / total * 100:.0f}%",
     }
     _replace_all(doc, mapping)
 
     # ── Graphiques ─────────────────────────────────────────────────────────────
-    buf_donut = _chart_donut(n_tx, n_fraud)
-    buf_bars  = _chart_risk_bars(transactions)
-    buf_types = _chart_amount_type(transactions)
+    buf_donut  = _chart_donut(n_tx, n_fraud)
+    buf_bars   = _chart_risk_bars(transactions)
+    buf_types  = _chart_amount_type(transactions)
+    buf_scores = _chart_score_dist(transactions, threshold)
 
-    # Cherche par sous-chaine robuste (ignore accents / espaces insecables)
-    _insert_chart_after_label(doc, "paration des transactions", buf_donut, width=4.8)
-    _insert_chart_after_label(doc, "isque d",                   buf_bars,  width=4.8)
-    _insert_chart_after_label(doc, "position financi",          buf_types, width=6.5)
-
+    charts: list[tuple[io.BytesIO, str]] = [
+        (buf_donut,  "Repartition des transactions"),
+        (buf_bars,   "Niveaux de risque detectes"),
+        (buf_types,  "Exposition financiere par type (kTND)"),
+        (buf_scores, "Distribution des indices de risque IA"),
+    ]
     if explain_results:
         buf_shap = _chart_shap(explain_results)
         if buf_shap:
-            _insert_chart_after_label(doc, "Facteurs d",  buf_shap, width=6.5)
+            charts.append((buf_shap, "Facteurs declencheurs (SHAP global)"))
+
+    # Supprimer tous les paragraphes entre analyse_text et section 03
+    # (labels, placeholders charts vides, espacements) puis insérer la grille
+    if para_analyse and para_section03:
+        _clear_paras_between(doc, para_analyse, para_section03)
+        _insert_charts_grid(doc, para_analyse._element, charts, width_each=2.9)
 
     # ── Tableau transactions ──────────────────────────────────────────────────
     if para_tx_text and transactions:
@@ -558,7 +674,7 @@ def generate_pwc_docx_report(
         _add_table_after_para(doc, para_tx_text, headers, rows, col_widths=widths)
         _clear_empty_paras_after(doc, para_tx_text, count=9)
 
-    # ── Fiches critiques ──────────────────────────────────────────────────────
+    # ── Fiches critiques (tableau compact, une seule page) ───────────────────
     explains_map: dict[str, dict] = {}
     if explain_results:
         for e in explain_results:
@@ -568,110 +684,43 @@ def generate_pwc_docx_report(
     critique_txs = [t for t in transactions if t.get("risk_level") == "CRITIQUE"]
 
     if para_section04:
-        _clear_empty_paras_after(doc, para_section04, count=9)
+        _clear_empty_paras_after(doc, para_section04, count=15)
 
         if not critique_txs:
-            last = _add_para_after(
+            _add_para_after(
                 para_section04._element,
                 "Aucune transaction critique detectee lors de cette analyse.",
-                italic=True, size=10, color=RGB_GRAY,
+                italic=True, size=11, color=RGB_GRAY,
             )
         else:
-            last = para_section04._element
-            for idx, tx in enumerate(critique_txs[:8], 1):
-                tx_id = str(tx.get("tx_id", f"TX-{idx}"))
-                expl  = explains_map.get(tx_id, {})
-                xgb   = float(tx.get("xgb_score", 0))
-                llm   = expl.get("llm", expl)
-
-                # En-tete fiche
-                last = _add_para_after(
-                    last,
-                    f"  Fiche #{idx}  -  Transaction {tx_id}  [ ALERTE ]",
-                    bold=True, size=10, color=RGB_WHITE,
-                )
-                _set_para_bg(last, "C00000")
-
-                # Infos de base
-                last = _add_para_after(
-                    last,
-                    f"Type : {tx.get('type', '-')}     |     Montant : {tx.get('amount', 0):,.2f} TND",
-                    size=10,
-                )
-
-                # Indice de risque
-                bar_filled = "#" * int(xgb * 20)
-                bar_empty  = "-" * (20 - int(xgb * 20))
-                last = _add_para_after(
-                    last,
-                    f"Indice de risque IA :  [{bar_filled}{bar_empty}]  {xgb:.3f} / 1.000",
-                    size=9, color=RGB_RED,
-                )
-
-                # Analyse LLM
-                resume = llm.get("resume", "")
-                if resume:
-                    last = _add_para_after(last, "Analyse :", bold=True, size=10, color=RGB_DARK)
-                    last = _add_para_after(last, resume[:450], size=9, color=RGB_GRAY)
-
-                # Raisons
-                raisons = llm.get("raisons", [])
-                if raisons:
-                    last = _add_para_after(
-                        last, "Pourquoi cette transaction est suspecte :",
-                        bold=True, size=10, color=RGB_DARK,
-                    )
-                    for r in raisons[:4]:
-                        last = _add_para_after(
-                            last, f"   -  {str(r)[:130]}", size=9, color=RGB_GRAY,
-                        )
-
-                # SHAP features
-                shap_vals = expl.get("shap_values", {})
-                if not shap_vals and "top_features" in expl:
-                    shap_vals = {
-                        f["feature"]: f.get("error", f.get("value", 0))
-                        for f in expl.get("top_features", [])
-                    }
-                if shap_vals:
-                    top3 = sorted(shap_vals.items(), key=lambda x: abs(float(x[1])), reverse=True)[:3]
-                    last = _add_para_after(
-                        last, "Facteurs declencheurs (selon l'IA) :",
-                        bold=True, size=10, color=RGB_DARK,
-                    )
-                    for feat, val in top3:
-                        feat_fr  = FEATURE_FR.get(feat, feat)
-                        sign     = "+" if float(val) >= 0 else ""
-                        f_expl   = FEATURE_EXPLAIN.get(feat, "")
-                        last = _add_para_after(
-                            last,
-                            f"   {feat_fr} :  score {sign}{float(val):.4f}",
-                            size=9, color=RGB_ORANGE,
-                        )
-                        if f_expl:
-                            last = _add_para_after(
-                                last, f"      -> {f_expl}", italic=True, size=9, color=RGB_GRAY,
-                            )
-
-                # Actions recommandees
-                actions = llm.get("actions_recommandees", expl.get("actions_recommandees", []))
-                if actions:
-                    last = _add_para_after(
-                        last, "Actions recommandees pour l'auditeur :",
-                        bold=True, size=10, color=RGB_ORANGE,
-                    )
-                    for act in actions[:3]:
-                        last = _add_para_after(
-                            last, f"   [>]  {str(act)[:135]}", size=9, color=RGB_GRAY,
-                        )
-
-                # Separateur
-                last = _add_para_after(last, "", size=6)
+            hdrs   = ["#", "ID Transaction", "Type", "Montant (TND)",
+                      "Indice IA", "Facteur principal", "Statut"]
+            widths = [0.25, 1.10, 0.80, 1.10, 0.75, 1.90, 0.60]
+            rows   = []
+            for rank, tx in enumerate(critique_txs[:14], 1):
+                tx_id  = str(tx.get("tx_id", f"TX-{rank}"))[:14]
+                expl   = explains_map.get(tx_id, {})
+                shap_v = expl.get("shap_values", {})
+                llm    = expl.get("llm", expl)
+                if shap_v:
+                    top_f   = max(shap_v.items(), key=lambda x: abs(float(x[1])))[0]
+                    facteur = FEATURE_FR.get(top_f, top_f)[:28]
+                elif llm.get("raisons"):
+                    facteur = str(llm["raisons"][0])[:28]
+                else:
+                    facteur = "-"
+                rows.append([
+                    str(rank), tx_id,
+                    str(tx.get("type", "-")),
+                    f"{tx.get('amount', 0):,.0f}",
+                    f"{float(tx.get('xgb_score', 0)):.3f}",
+                    facteur,
+                    "ALERTE",
+                ])
+            _add_table_after_para(doc, para_section04, hdrs, rows, col_widths=widths)
 
     # ── Recommandations ───────────────────────────────────────────────────────
-    if para_section05:
-        _clear_empty_paras_after(doc, para_section05, count=9)
-
+    if para_rec:
         recs = []
         if n_critique > 0:
             recs.append(
@@ -694,18 +743,16 @@ def generate_pwc_docx_report(
             "Conserver ce rapport joint aux preuves collectees dans le dossier d'audit.",
         ]
 
-        last = para_section05._element
+        last = para_rec._element
         for i, rec in enumerate(recs, 1):
-            last = _add_para_after(last, f"  {i}.  {rec}", size=10, color=RGB_GRAY)
+            last = _add_para_after(last, f"  {i}.  {rec}", size=11, color=RGB_GRAY)
 
     # ── Glossaire ─────────────────────────────────────────────────────────────
-    if para_section06:
-        _clear_empty_paras_after(doc, para_section06, count=3)
-
-        last = para_section06._element
+    if para_glo:
+        last = para_glo._element
         for term, definition in GLOSSAIRE:
-            last = _add_para_after(last, f"* {term} :", bold=True, size=10, color=RGB_DARK)
-            last = _add_para_after(last, f"   {definition}", size=9, color=RGB_GRAY)
+            last = _add_para_after(last, f"* {term} :", bold=True, size=11, color=RGB_DARK)
+            last = _add_para_after(last, f"   {definition}", size=11, color=RGB_GRAY)
             last = _add_para_after(last, "", size=5)
 
     buf = io.BytesIO()

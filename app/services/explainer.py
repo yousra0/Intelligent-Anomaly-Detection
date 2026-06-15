@@ -8,6 +8,29 @@ from __future__ import annotations
 import numpy as np
 
 
+def compute_ae_feature_errors(
+    tx_arr: np.ndarray,
+    ae,
+    feature_cols: list[str],
+) -> dict[str, float]:
+    """
+    Proxy AE : |x - AE(x)| par feature.
+
+    Remplace KernelExplainer (trop lent pour la production) pour expliquer
+    l'AutoEncoder. Chaque valeur représente l'erreur de reconstruction de
+    l'AutoEncoder sur cette feature — plus elle est grande, plus la feature
+    a contribué au score d'anomalie.
+    """
+    import torch
+
+    tx_tensor = torch.FloatTensor(tx_arr.reshape(1, -1)).to(ae.device)
+    ae.model.eval()
+    with torch.no_grad():
+        recon = ae.model(tx_tensor).cpu().numpy()[0]
+    errors = np.abs(tx_arr - recon)
+    return {feat: round(float(e), 6) for feat, e in zip(feature_cols, errors)}
+
+
 def compute_shap(
     tx_arr: np.ndarray,
     xgb_raw,

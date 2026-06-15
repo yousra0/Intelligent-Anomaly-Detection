@@ -79,6 +79,18 @@ def load_all_models(project_root: Path) -> dict:
         thresholds_raw = json.load(f)
     with open(reports_dir / "baseline_report.json") as f:
         baseline_report = json.load(f)
+    with open(reports_dir / "autoencoder_report.json") as f:
+        ae_report = json.load(f)
+
+    # Injecte l'entrée AutoEncoder dans baseline_report si absente
+    ae_names = {m.get("name") for m in baseline_report.get("models", [])}
+    if "AutoEncoder" not in ae_names:
+        baseline_report.setdefault("models", []).append({
+            "name": "AutoEncoder",
+            "optimal_threshold": ae_report["threshold"]["optimal"],
+            "train_time_s": ae_report["training"]["train_time_s"],
+            "test_metrics": ae_report["test_metrics"],
+        })
 
     # Normalise les thresholds: accepte les deux formats {"thresholds": {...}} ou direct
     thresholds = thresholds_raw.get("thresholds", thresholds_raw)

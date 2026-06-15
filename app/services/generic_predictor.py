@@ -52,11 +52,23 @@ def _fit_isoforest(
     scores      : decision_function — valeurs en [-0.5, 0.5]
                   positif = inlier, négatif = anomalie
     predictions : 1 = normal, -1 = anomalie (sklearn convention)
+
+    Gère automatiquement les colonnes catégorielles par label encoding.
     """
     X = df[numeric_cols].copy()
+    # Encoder les colonnes catégorielles (label encoding)
+    for col in X.select_dtypes(include="object").columns:
+        X[col] = pd.factorize(X[col])[0].astype(float)
+    # Convertir toute colonne non numérique restante
+    for col in X.columns:
+        if not pd.api.types.is_numeric_dtype(X[col]):
+            try:
+                X[col] = pd.to_numeric(X[col], errors="coerce")
+            except Exception:
+                X[col] = 0.0
     # Imputation par médiane (plus robuste que la moyenne sur données frauduleuses)
     X = X.fillna(X.median(numeric_only=True))
-    # Clamp les valeurs extrêmes (NaN résiduels → 0)
+    # NaN résiduels → 0
     X = X.fillna(0)
 
     scaler = StandardScaler()
@@ -147,6 +159,16 @@ def predict_generic_batch(
     iso_scores: Optional[np.ndarray] = None
     iso_predictions: Optional[np.ndarray] = None
     if schema_result.use_isoforest and schema_result.numeric_cols_for_iso:
+        # Avertissement explicite : le modèle iso_forest.pkl pré-entraîné PaySim n'est PAS
+        # utilisé ici. L'IsoForest est ajusté sur ce batch uniquement (mode transductif,
+        # contamination=5%). Si le batch ne contient aucune fraude réelle, les 5% de
+        # transactions les plus atypiques seront quand même flaggées → faux positifs garantis.
+        schema_result.warnings.append(
+            "IsolationForest transductif : ajusté sur ce batch uniquement "
+            f"(contamination={CONTAMINATION*100:.0f}%). "
+            "Le modèle pré-entraîné PaySim n'est pas utilisé. "
+            "Si le batch ne contient pas de fraude réelle, des faux positifs sont inévitables."
+        )
         try:
             iso_scores, iso_predictions = _fit_isoforest(
                 df_original, schema_result.numeric_cols_for_iso

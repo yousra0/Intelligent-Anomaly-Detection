@@ -258,12 +258,13 @@ class DynamicFeatureBuilder:
                 amt = amt.abs()
                 adaptations.append("Valeurs négatives détectées dans 'amount' — abs() appliqué")
             result["log_amount"] = np.log1p(amt)
-            col_profile = profile.columns.get("amount") or profile.columns.get(
-                next((k for k in profile.columns if k.lower() in ("amount", "montant", "amt")), "")
-            )
             method = "log1p(amount)"
-            if col_profile and col_profile.num_skewness and abs(col_profile.num_skewness) > EXTREME_SKEW_THRESHOLD:
-                method += f" [skewness={col_profile.num_skewness:.1f} → transformation justifiée]"
+            if profile is not None:
+                col_profile = profile.columns.get("amount") or profile.columns.get(
+                    next((k for k in profile.columns if k.lower() in ("amount", "montant", "amt")), "")
+                )
+                if col_profile and col_profile.num_skewness and abs(col_profile.num_skewness) > EXTREME_SKEW_THRESHOLD:
+                    method += f" [skewness={col_profile.num_skewness:.1f} → transformation justifiée]"
             details["log_amount"] = FeatureDetail("log_amount", "amount", method, "ok")
         else:
             result["log_amount"] = pd.Series(np.zeros(n))

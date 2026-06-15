@@ -16,6 +16,7 @@ MODEL_NAMES = [
 ]
 
 BEST_MODEL = "XGB_smote"
+PRODUCTION_MODELS = {"XGB_smote", "AutoEncoder"}
 
 
 @router.get("/models")
@@ -45,6 +46,7 @@ def get_models(request: Request):
             "train_time_s": round(entry.get("train_time_s", 0.0), 2),
             "optimal_threshold": round(thresholds.get(name, metrics.get("threshold", 0.5)), 4),
             "is_best": name == BEST_MODEL,
+            "is_in_production": name in PRODUCTION_MODELS,
         })
 
     return {"models": result}

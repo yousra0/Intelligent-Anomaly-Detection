@@ -563,7 +563,7 @@ Reponds avec ce JSON exact (sans markdown, sans texte avant/apres) :
             FEATURE_INTERPRETATIONS.get(n, f"Anomalie sur {n} (erreur={e:.4f}).")
             for n, e, _ in top_features
         ]
-        return {
+        result = {
             "risk_level"          : risk,
             "ae_score"            : round(ae_score, 6),
             "threshold"           : round(threshold, 6),
@@ -587,6 +587,12 @@ Reponds avec ce JSON exact (sans markdown, sans texte avant/apres) :
             "model"               : "rule_based",
             "duration_s"          : 0.0,
         }
+        # Le fallback est aussi auditable : on hache le contenu de l'explication elle-même
+        # (pas de prompt/réponse LLM, donc on signe le résultat déterministe directement).
+        fallback_content = json.dumps(result, ensure_ascii=False, default=str, sort_keys=True)
+        self._audit_stamp(fallback_content, "fallback_rule_based", result)
+        self._save_audit_log(result)
+        return result
 
     # ── Auditabilité ─────────────────────────────────────────────────────────
 

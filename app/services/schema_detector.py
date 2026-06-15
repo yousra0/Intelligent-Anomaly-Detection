@@ -8,10 +8,11 @@ Logique de décision
 ───────────────────
  mapping_result.success = True          → mode "paysim"   (XGB + AE)
  mapping_result.success = False :
-   "amount" mappé ET ≥ 3 cols numériques → mode "ae_isoforest"
-   "amount" mappé, < 3 cols numériques   → mode "ae_only"
-   "amount" non mappé ET ≥ 3 cols num.   → mode "isoforest"
-   aucune colonne utilisable              → ValueError 422
+   "amount" mappé ET ≥ 1 col numérique   → mode "ae_isoforest"
+   "amount" mappé, 0 cols numériques     → mode "ae_only"
+   "amount" non mappé ET ≥ 1 col num.    → mode "isoforest"
+   aucune col num. → essai encodage catégoriel → mode "isoforest"
+   aucune colonne utilisable              → mode dégradé (tout FAIBLE)
 
 Notes
 ─────
@@ -29,10 +30,10 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
-# Minimum de colonnes numériques brutes pour lancer l'IsoForest
-_ISO_MIN_COLS = 3
-# Colonnes numériques trop peu informatives à exclure pour IsoForest
-_ISO_MIN_UNIQUE = 3   # au moins 3 valeurs uniques
+# Minimum de colonnes pour lancer l'IsoForest — 1 suffit (toute info vaut mieux que rien)
+_ISO_MIN_COLS = 1
+# Minimum de valeurs uniques pour qu'une colonne soit informative
+_ISO_MIN_UNIQUE = 2
 
 
 @dataclass
@@ -86,11 +87,9 @@ def detect_schema_mode(
 
     Retourne
     --------
-    SchemaDetectionResult — mode sélectionné + métadonnées
-
-    Lève
-    ----
-    ValueError si le dataset est incompatible avec tous les modes
+    SchemaDetectionResult — mode sélectionné + métadonnées.
+    Ne lève jamais d'exception : en dernier recours, retourne un mode dégradé
+    où toutes les transactions sont classées FAIBLE.
     """
     mapped_fields = set(mapping_result.mapping.keys())
     conf_values = list(mapping_result.confidence.values())
@@ -145,13 +144,38 @@ def detect_schema_mode(
         if orig_amount in df_original.columns:
             can_ae = pd.api.types.is_numeric_dtype(df_original[orig_amount])
 
+    # Fallback : encoder les colonnes catégorielles si aucune colonne numérique
+    # informative n'est disponible (label encoding effectué dans _fit_isoforest)
+    if not can_iso:
+        cat_cols = [
+            c for c in df_original.select_dtypes(include="object").columns
+            if 2 <= df_original[c].nunique() <= 200
+        ]
+        if cat_cols:
+            numeric_cols = cat_cols
+            can_iso = True
+            warnings.append(
+                f"Aucune colonne numérique informative — {len(cat_cols)} colonne(s) "
+                "catégorielle(s) seront encodées (label encoding) pour IsolationForest."
+            )
+
+    # Mode ultime dégradé : aucune colonne utilisable → tout classé FAIBLE
     if not can_ae and not can_iso:
-        raise ValueError(
-            f"Dataset incompatible : aucune colonne PaySim reconnue "
-            f"et seulement {len(numeric_cols)} colonne(s) numérique(s) "
-            f"(minimum requis : {_ISO_MIN_COLS}). "
-            "Vérifiez que votre CSV contient des colonnes de montant ou "
-            "au moins 3 colonnes numériques distinctes."
+        warnings.append(
+            "Aucune colonne utilisable pour la détection d'anomalies. "
+            "Toutes les transactions sont classées FAIBLE par défaut."
+        )
+        return SchemaDetectionResult(
+            mode="isoforest",
+            n_mapped=n_mapped,
+            n_paysim_required=n_required,
+            avg_confidence=avg_conf,
+            use_xgb=False,
+            use_ae=False,
+            use_isoforest=False,
+            numeric_cols_for_iso=[],
+            reason="Aucune colonne numérique ni catégorielle utilisable — mode dégradé (tout FAIBLE).",
+            warnings=warnings,
         )
 
     if can_ae and can_iso:
