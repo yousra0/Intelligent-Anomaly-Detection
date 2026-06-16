@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Data & Outputs (volumineux)
+# Data & Outputs (volumineux / générés)
 # ─────────────────────────────────────────────────────────────────────────────
 data/raw/*
 data/processed/*
@@ -40,14 +40,39 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Environnement virtuel
+# Environnements virtuels Python
 # ─────────────────────────────────────────────────────────────────────────────
 venv/
 ENV/
+env/
 env.bak/
 venv.bak/
 .venv/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Next.js / Node.js
+# ─────────────────────────────────────────────────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/dist/
+frontend/.vercel/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnpm-debug.log*
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Variables d'environnement (secrets)
+# ─────────────────────────────────────────────────────────────────────────────
 .env
+.env.local
+.env.*.local
+frontend/.env.local
+frontend/.env.*.local
+secrets.json
+*.local.yaml
+*.local.yml
 
 # ─────────────────────────────────────────────────────────────────────────────
 # IDE & Éditeurs
@@ -57,8 +82,6 @@ venv.bak/
 *.swp
 *.swo
 *~
-.DS_Store
-Thumbs.db
 *.sublime-workspace
 *.sublime-project
 
@@ -72,6 +95,7 @@ Thumbs.db
 .Trashes
 ehthumbs.db
 desktop.ini
+Thumbs.db
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Jupyter Notebooks
@@ -81,20 +105,26 @@ desktop.ini
 .jupyter/
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Config sensible
-# ─────────────────────────────────────────────────────────────────────────────
-*.local.yaml
-*.local.yml
-.env.local
-secrets.json
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Tests & Coverage
 # ─────────────────────────────────────────────────────────────────────────────
 .coverage
 .pytest_cache/
 htmlcov/
 .tox/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LaTeX (artefacts de compilation)
+# ─────────────────────────────────────────────────────────────────────────────
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Misc
