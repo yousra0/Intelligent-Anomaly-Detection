@@ -133,3 +133,21 @@ htmlcov/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Next.js
+.next/
+out/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Environment variables
+.env
+.env.local
