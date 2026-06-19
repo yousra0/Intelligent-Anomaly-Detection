@@ -337,7 +337,7 @@ class TestBehavioralFeatures:
 
 class TestEngineerGeneral:
 
-    def test_total_15_features_on_full_paysim(self, eng, canon_df):
+    def test_total_15_features_on_full_schema(self, eng, canon_df):
         _, report = eng.engineer(canon_df)
         assert report.n_generated == 15
         assert len(report.all_new_features) == 15

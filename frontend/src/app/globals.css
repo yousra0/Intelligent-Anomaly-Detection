@@ -24,16 +24,64 @@
     --input: 0 0% 89%;
     --ring: 19 97% 41%;
     --radius: 0.5rem;
+    --navbar-bg: 0 0% 100%;
+    --navbar-border: 0 0% 89%;
+  }
+
+  .dark {
+    --background: 222 25% 11%;
+    --foreground: 0 0% 95%;
+    --card: 222 22% 15%;
+    --card-foreground: 0 0% 95%;
+    --popover: 222 22% 15%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 19 97% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 60%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 222 20% 20%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 19 40% 20%;
+    --accent-foreground: 19 97% 70%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 15% 25%;
+    --input: 222 15% 25%;
+    --ring: 19 97% 52%;
+    --navbar-bg: 222 22% 13%;
+    --navbar-border: 222 15% 22%;
   }
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     @apply border-border;
+    box-sizing: border-box;
   }
+
+  html {
+    /* Prevent browser zoom from breaking layout — use text-size-adjust */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Ensure full viewport width is used */
+    width: 100%;
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Desktop-first: prevent content from being narrower than viewport */
+    min-width: 320px;
+    width: 100%;
+  }
+
+  /* Ensure the app container always fills the viewport */
+  #__next {
+    min-height: 100vh;
+    width: 100%;
   }
 }
 
@@ -52,6 +100,11 @@
       transform: translateY(0);
     }
   }
+
+  /* Full-width utility for desktop panels */
+  .panel-full {
+    @apply w-full max-w-none;
+  }
 }
 
 /* PwC brand scrollbar */
@@ -60,10 +113,10 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f7f7f7;
+  background: hsl(var(--muted));
 }
 ::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
+  background: hsl(var(--border));
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
@@ -72,5 +125,32 @@
 
 /* Table striped rows */
 .table-striped tr:nth-child(even) {
-  background-color: #fafafa;
+  background-color: hsl(var(--muted) / 0.4);
+}
+
+/* Responsive table wrapper */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Desktop-first layout helpers ────────────────── */
+
+/* Content area should always span available width */
+.content-area {
+  width: 100%;
+  flex: 1 1 auto;
+}
+
+/* Grid that adapts from 1 col (mobile) → 2 (tablet) → 3-4 (desktop) */
+.adaptive-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Ensure cards never collapse too narrow */
+.card-min {
+  min-width: 0;
+  min-height: 0;
 }

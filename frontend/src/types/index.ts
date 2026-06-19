@@ -4,11 +4,39 @@
 
 export type UserRole = "auditor" | "manager" | "partner" | "admin";
 
+export type UserStatus = "active" | "inactive";
+
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  phone?: string;
+  position?: string;
+  department?: string;
+  status?: UserStatus;
+  created_at?: string;
+}
+
+export interface CreateUserPayload {
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  password: string;
+  role: UserRole;
+}
+
+export interface UpdateUserPayload {
+  first_name?: string;
+  last_name?: string;
+  email?: string;
+  phone?: string;
+  position?: string;
+  department?: string;
+  role?: UserRole;
 }
 
 export interface AuthState {
@@ -50,6 +78,7 @@ export interface Mission {
   end_date: string;
   status: MissionStatus;
   assigned_to?: string;
+  assigned_auditors?: string[];
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -63,6 +92,7 @@ export interface CreateMissionPayload {
   start_date: string;
   end_date: string;
   assigned_to?: string;
+  assigned_auditors?: string[];
 }
 
 // ─────────────────────────────────────────────
@@ -89,7 +119,7 @@ export interface Dataset {
 // Analysis / Prediction  (mirrors FastAPI response)
 // ─────────────────────────────────────────────
 
-export type AnalysisModel = "paysim" | "ae_isoforest" | "ae_only" | "isoforest";
+export type AnalysisModel = "standard" | "ae_isoforest" | "ae_only" | "isoforest";
 export type RiskLevel = "CRITIQUE" | "ELEVE" | "FAIBLE";
 
 export interface ColumnMapping {
@@ -100,7 +130,7 @@ export interface ColumnMapping {
 export interface SchemaDetection {
   mode: AnalysisModel;
   n_mapped: number;
-  n_paysim_required: number;
+  n_required: number;
   avg_confidence: number;
   use_xgb: boolean;
   use_ae: boolean;
@@ -290,7 +320,12 @@ export type AuditLogAction =
   | "report.generate"
   | "report.download"
   | "anomaly.comment"
-  | "anomaly.status_change";
+  | "anomaly.status_change"
+  | "user_create"
+  | "user_update"
+  | "user_disable"
+  | "user_activate"
+  | "user_reset_password";
 
 export interface AuditLog {
   id: string;

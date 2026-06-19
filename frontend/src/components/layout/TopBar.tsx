@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useRouter } from "next/navigation";
+import { Logo } from "@/components/ui/Logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,18 +28,12 @@ export function TopBar({ title }: TopBarProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 h-14 border-b border-border bg-white shadow-sm">
+    <header className="sticky top-0 z-40 h-14 border-b border-[hsl(var(--navbar-border))] bg-[hsl(var(--navbar-bg))] shadow-sm">
       <div className="flex h-full items-center justify-between px-6">
         {/* Left: Logo + breadcrumb */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            {/* PwC wordmark */}
-            <div className="flex items-center justify-center rounded bg-pwc-orange px-2 py-1">
-              <span className="text-xs font-black tracking-tight text-white">PwC</span>
-            </div>
-            <span className="text-sm font-medium text-muted-foreground hidden sm:block">
-              Audit Analytics Platform
-            </span>
+            <Logo href="/dashboard" size="sm" showWordmark />
           </div>
           {title && (
             <>

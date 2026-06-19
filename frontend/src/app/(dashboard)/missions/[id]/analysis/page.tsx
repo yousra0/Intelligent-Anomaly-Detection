@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { missionService } from "@/lib/api/missionService";
 import { AnalysisWizard } from "@/components/analysis/AnalysisWizard";
@@ -10,6 +10,8 @@ import { ArrowLeft } from "lucide-react";
 export default function AnalysisPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const preselectedDatasetId = searchParams.get("datasetId") ?? undefined;
 
   const { data: mission, isLoading } = useQuery({
     queryKey: ["mission", id],
@@ -49,6 +51,7 @@ export default function AnalysisPage() {
         missionId={id}
         missionName={mission?.name}
         companyName={mission?.company_name}
+        datasetId={preselectedDatasetId}
       />
     </div>
   );

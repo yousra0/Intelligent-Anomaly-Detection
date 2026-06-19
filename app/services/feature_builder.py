@@ -18,7 +18,7 @@ Résultat :
 Relation avec predictor.py :
   feature_builder.build() remplace l'appel à preprocess() en intégrant
   la détection de type dans le pipeline. predictor.preprocess() reste
-  disponible pour les cas où le dataset est déjà en format PaySim canonique.
+  disponible pour les cas où le dataset est déjà en format canonique.
 """
 
 from __future__ import annotations
@@ -84,7 +84,7 @@ class FeatureBuildReport:
 
 class DynamicFeatureBuilder:
     """
-    Construit les 14 features PaySim de manière adaptative à partir
+    Construit les 14 features de manière adaptative à partir
     d'un DataFrame déjà normalisé (colonnes canoniques via ColumnMapper).
 
     Stratégies d'adaptation par feature :
@@ -100,7 +100,7 @@ class DynamicFeatureBuilder:
       log_amount    : log1p(amount) | fallback=0
     """
 
-    PAYSIM_TYPES = ["CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"]
+    TRANSACTION_TYPES = ["CASH_IN", "CASH_OUT", "DEBIT", "PAYMENT", "TRANSFER"]
 
     def build(
         self,
@@ -113,7 +113,7 @@ class DynamicFeatureBuilder:
         ----------
         df      : DataFrame avec colonnes canoniques (issu de ColumnMapper)
         profile : profil du dataset original (avant mapping)
-        scaler  : StandardScaler déjà entraîné sur PaySim
+        scaler  : StandardScaler déjà entraîné sur le jeu d'entraînement
 
         Retourne
         --------
@@ -191,27 +191,27 @@ class DynamicFeatureBuilder:
                 "is_transfer_or_cashout", "type",
                 "type isin ['TRANSFER','CASH_OUT']", "ok"
             )
-            for t in self.PAYSIM_TYPES:
+            for t in self.TRANSACTION_TYPES:
                 feat = f"type_{t}"
                 result[feat] = (type_col == t).astype(float)
                 details[feat] = FeatureDetail(feat, "type", f"type == '{t}' (OHE)", "ok")
             # Valeurs inconnues
-            known = set(self.PAYSIM_TYPES)
+            known = set(self.TRANSACTION_TYPES)
             unknown = set(type_col.unique()) - known - {"UNKNOWN"}
             if unknown:
                 warnings.append(
-                    f"Valeurs de type inconnues ignorées (non comprises dans les types PaySim) : {unknown}"
+                    f"Valeurs de type inconnues ignorées (non comprises dans les types reconnus) : {unknown}"
                 )
         else:
             # Fallback : toutes les dummies à 0
             result["is_transfer_or_cashout"] = pd.Series(np.zeros(n))
-            for t in self.PAYSIM_TYPES:
+            for t in self.TRANSACTION_TYPES:
                 result[f"type_{t}"] = pd.Series(np.zeros(n))
             warnings.append("Colonne 'type' absente — OHE et is_transfer_or_cashout mis à 0")
             details["is_transfer_or_cashout"] = FeatureDetail(
                 "is_transfer_or_cashout", "—", "fallback=0", "missing_fallback", 0.0
             )
-            for t in self.PAYSIM_TYPES:
+            for t in self.TRANSACTION_TYPES:
                 details[f"type_{t}"] = FeatureDetail(f"type_{t}", "—", "fallback=0", "missing_fallback", 0.0)
 
         # ── balance_diff_orig ─────────────────────────────────────────────

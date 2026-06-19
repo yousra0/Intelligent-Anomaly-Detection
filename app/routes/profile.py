@@ -8,8 +8,9 @@ from __future__ import annotations
 import io
 
 import pandas as pd
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
+from app.auth.dependencies import CurrentUser, get_current_user
 from app.services.column_mapper import map_columns
 from app.services.dataset_profiler import profile_dataset
 from app.services.feature_engineer import engineer_features
@@ -18,7 +19,10 @@ router = APIRouter()
 
 
 @router.post("/profile")
-async def profile_csv(file: UploadFile = File(...)):
+async def profile_csv(
+    file: UploadFile = File(...),
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """
     Analyse un fichier CSV et retourne le rapport de profilage complet :
     - Types sémantiques de chaque colonne
@@ -28,7 +32,7 @@ async def profile_csv(file: UploadFile = File(...)):
     - Détection de colonnes quasi-constantes, identifiants, dates
     - Score de qualité global
     - Recommandations
-    - Mapping sémantique vers les colonnes PaySim canoniques
+    - Mapping sémantique vers les colonnes canoniques
     """
     content = await file.read()
     if not content.strip():

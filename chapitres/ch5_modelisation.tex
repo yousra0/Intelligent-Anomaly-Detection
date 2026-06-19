@@ -1,0 +1,284 @@
+% =====================================================
+% CHAPITRE 5 : MODÉLISATION (CRISP-DM Phase 4)
+% =====================================================
+\chapter{Modélisation}
+
+% ---------------------------------------------------
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+% ---------------------------------------------------
+
+Une fois les données préparées, vient la phase de construction des modèles. Plutôt que de
+choisir d'emblée l'approche la plus sophistiquée, j'ai opté pour une progression logique :
+commencer par un modèle simple servant de référence, complexifier si les performances le
+justifient, puis compléter avec une perspective non supervisée. Cette stratégie permet
+d'évaluer la valeur ajoutée réelle de chaque niveau de complexité et d'éviter un
+sur-ingénierie inutile. Ce chapitre décrit les trois architectures développées et les
+décisions qui ont guidé leur conception, à travers les notebooks
+\texttt{03\_baseline\_models.ipynb} et \texttt{04\_autoencoder.ipynb}.
+
+% ---------------------------------------------------
+\section{Régression logistique}
+% ---------------------------------------------------
+
+\subsection{Principe et rôle dans le projet}
+
+La régression logistique est la \textbf{baseline} --- le modèle de référence que tout
+algorithme plus complexe doit surpasser pour justifier sa complexité. Elle produit une
+probabilité d'appartenance à la classe fraude via la fonction sigmoïde :
+
+\[
+P(\text{fraude} \mid \mathbf{x}) = \sigma(\mathbf{w}^\top \mathbf{x} + b)
+= \frac{1}{1 + e^{-(\mathbf{w}^\top \mathbf{x} + b)}}
+\]
+
+Sa faible capacité expressive est ici un avantage : si la régression logistique détecte
+déjà une grande partie des fraudes, cela signifie que le signal est linéairement séparable,
+ce qui simplifie l'ensemble de la chaîne. Dans le cas contraire, cela justifie le passage
+à des modèles non linéaires.
+
+\subsection{Hyperparamètres et configurations évaluées}
+
+\begin{table}[H]
+\centering
+\caption{Hyperparamètres de la régression logistique}
+\label{tab:lr_params}
+\begin{tabular}{lll}
+\toprule
+\textbf{Paramètre} & \textbf{Valeur} & \textbf{Justification} \\
+\midrule
+\texttt{C}             & 0,1      & Régularisation forte (peu de fraudes) \\
+\texttt{solver}        & lbfgs   & Adapté aux datasets de taille moyenne \\
+\texttt{class\_weight} & balanced & Correction automatique du déséquilibre \\
+\texttt{max\_iter}     & 1000    & Assure la convergence \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Deux configurations sont comparées :
+\begin{itemize}
+  \item \textbf{LR\_balanced} : entraînée sur \texttt{X\_train} avec
+    \texttt{class\_weight='balanced'} ;
+  \item \textbf{LR\_smote} : entraînée sur \texttt{X\_smote} (données équilibrées par
+    SMOTE) sans pondération explicite.
+\end{itemize}
+
+\subsection{Réglage du seuil de décision}
+
+À seuil par défaut ($0{,}5$), \texttt{LR\_balanced} maximise fortement le rappel mais au
+prix d'une précision très faible. Une recherche de seuil sur l'ensemble de validation est
+donc réalisée à partir des probabilités produites par le modèle. Les seuils optimaux retenus
+sont \textbf{0,9986} pour \texttt{LR\_balanced} et \textbf{0,9621} pour \texttt{LR\_smote}.
+Après ce recalibrage, \texttt{LR\_smote} devient la meilleure variante logistique avec un
+rappel de \textbf{0,6923}, une précision de \textbf{0,7297} et un F1-score de
+\textbf{0,7105} sur l'ensemble de test.
+
+% ---------------------------------------------------
+\section{Forêt aléatoire}
+% ---------------------------------------------------
+
+\subsection{Principe et avantages}
+
+La forêt aléatoire constitue la \textbf{référence supervisée robuste} de ce projet. Son
+principe repose sur la diversité : entraîner un grand nombre d'arbres de décision sur des
+sous-échantillons distincts des données (\textit{bootstrap}), puis agréger leurs
+prédictions. Cette diversité rend l'ensemble résistant au sur-apprentissage
+(\textit{overfitting}) et capable de capturer des interactions non linéaires entre variables
+que la régression logistique ne peut pas modéliser.
+
+La prédiction finale est la \textbf{moyenne des probabilités} émises par chaque arbre
+individuel, ce qui produit des scores bien calibrés.
+
+\subsection{Hyperparamètres}
+
+\begin{table}[H]
+\centering
+\caption{Hyperparamètres de la forêt aléatoire}
+\label{tab:rf_params}
+\begin{tabular}{lll}
+\toprule
+\textbf{Paramètre} & \textbf{Valeur} & \textbf{Justification} \\
+\midrule
+\texttt{n\_estimators}      & 300 & Stabilité des estimations \\
+\texttt{max\_depth}         & 10  & Limite l'overfitting sur peu de fraudes \\
+\texttt{min\_samples\_leaf} & 5   & Évite les feuilles trop petites \\
+\texttt{class\_weight}      & balanced & Correction du déséquilibre \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Deux variantes sont comparées :
+\begin{itemize}
+  \item \textbf{RF\_balanced} : entraînée sur \texttt{X\_train} avec
+    \texttt{class\_weight='balanced'} ;
+  \item \textbf{RF\_smote} : entraînée sur \texttt{X\_smote}, sans pondération explicite.
+\end{itemize}
+
+\subsection{Réglage du seuil et importance des variables}
+
+Les seuils optimaux retenus après recherche sur validation sont \textbf{0,6235} pour
+\texttt{RF\_balanced} et \textbf{0,6291} pour \texttt{RF\_smote}. La variante
+\texttt{RF\_smote} obtient les meilleures performances supervisées globales sur le test :
+rappel de \textbf{0,7949}, précision de \textbf{0,8158} et F1-score de \textbf{0,8052}.
+
+La forêt aléatoire permet également de calculer l'importance de chaque variable via la
+réduction moyenne d'impureté (\textit{Mean Decrease in Impurity}). Sur
+\texttt{RF\_smote}, les cinq variables les plus influentes sont :
+
+\begin{table}[H]
+\centering
+\caption{Importance des variables (RF\_smote)}
+\label{tab:feature_importance_rf}
+\begin{tabular}{lr}
+\toprule
+\textbf{Variable} & \textbf{Importance} \\
+\midrule
+\texttt{balance\_diff\_orig}       & $\sim$0,385 \\
+\texttt{hour}                      & $\sim$0,118 \\
+\texttt{dest\_zero\_balance}       & $\sim$0,115 \\
+\texttt{type\_TRANSFER}            & $\sim$0,089 \\
+\texttt{log\_amount}               & $\sim$0,081 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Cette hiérarchie confirme que le comportement du compte émetteur, la temporalité et la
+nature du virement sont les signaux les plus discriminants --- en cohérence avec l'EDA.
+
+% ---------------------------------------------------
+\section{Autoencoder}
+% ---------------------------------------------------
+
+\subsection{Principe de détection par reconstruction}
+
+L'autoencoder repose sur une idée intuitive : \textbf{apprendre à compresser puis à
+reconstruire fidèlement les données normales}. Si une transaction légitime peut être
+reproduite depuis un espace latent de petite dimension, c'est qu'elle s'inscrit dans des
+patterns réguliers. Une transaction frauduleuse --- jamais vue à l'entraînement --- sera
+en revanche mal reconstruite, trahissant son caractère inhabituel par une erreur de
+reconstruction élevée.
+
+\begin{definitionbox}
+\textbf{Principe de l'autoencoder pour la détection d'anomalies :}
+\begin{itemize}
+  \item \textbf{Entraînement :} uniquement sur les transactions légitimes → le modèle
+    apprend à reconstruire fidèlement les patterns normaux.
+  \item \textbf{Inférence :} sur une transaction frauduleuse (pattern jamais vu),
+    l'erreur de reconstruction est élevée car le modèle ne sait pas comment la reproduire.
+  \item \textbf{Décision :} si l'erreur de reconstruction (MSE) dépasse un seuil
+    $\theta$, la transaction est classée comme anomalie.
+\end{itemize}
+\end{definitionbox}
+
+\subsection{Architecture du réseau}
+
+L'architecture retenue est un autoencoder symétrique à trois couches dans l'encodeur et
+trois dans le décodeur, avec un espace latent (\textit{bottleneck}) de dimension 4 :
+
+\begin{table}[H]
+\centering
+\caption{Architecture de l'autoencoder ($14 \to 10 \to 7 \to [4] \to 7 \to 10 \to 14$)}
+\label{tab:ae_architecture}
+\begin{tabular}{llll}
+\toprule
+\textbf{Partie} & \textbf{Couche} & \textbf{Dimension} & \textbf{Activation} \\
+\midrule
+Entrée   & Input      & 14 & --- \\
+Encodeur & Dense 1    & 10 & ReLU + BatchNorm + Dropout(0,2) \\
+         & Dense 2    & 7  & ReLU + BatchNorm + Dropout(0,2) \\
+         & Bottleneck & 4  & ReLU \\
+Décodeur & Dense 3    & 7  & ReLU + BatchNorm + Dropout(0,2) \\
+         & Dense 4    & 10 & ReLU + BatchNorm + Dropout(0,2) \\
+Sortie   & Dense 5    & 14 & Linéaire \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les techniques de régularisation employées sont :
+\begin{itemize}
+  \item \textbf{BatchNorm} (normalisation par lots) : stabilise l'apprentissage ;
+  \item \textbf{Dropout} (taux 0,2) : réduit le sur-apprentissage ;
+  \item \textbf{Régularisation L2} ($\lambda = 10^{-5}$) sur les poids denses.
+\end{itemize}
+
+\subsection{Entraînement}
+
+\begin{table}[H]
+\centering
+\caption{Paramètres d'entraînement de l'autoencoder}
+\label{tab:ae_training}
+\begin{tabular}{ll}
+\toprule
+\textbf{Paramètre} & \textbf{Valeur} \\
+\midrule
+Données d'entraînement  & 139~818 transactions légitimes (0 fraude) \\
+Validation interne      & 10\,\% du train normal \\
+Fonction de perte       & MSE (Mean Squared Error) \\
+Optimiseur              & Adam ($\alpha = 10^{-3}$) \\
+Batch size              & 256 \\
+Epochs max              & 100 (EarlyStopping, patience = 10) \\
+ReduceLROnPlateau       & facteur 0,5, patience 5, min\_lr $10^{-6}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+L'entraînement s'arrête après \textbf{35 époques effectives} grâce à \textit{EarlyStopping}.
+Le meilleur \texttt{val\_loss} observé est de \textbf{0,145024} et le temps d'entraînement
+est de \textbf{45,2 secondes}. Le modèle comporte \textbf{664 paramètres} entraînables,
+ce qui reste très léger au regard de la taille du corpus.
+
+\subsection{Détermination du seuil de détection}
+
+Une première borne est estimée par le \textbf{95\textsuperscript{e} percentile} de
+l'erreur de reconstruction sur les transactions normales d'entraînement
+($\theta_{p95} = 0{,}403750$). Ce seuil est utile comme repère initial, mais trop permissif
+pour une décision finale.
+
+Le seuil optimal est ensuite trouvé sur l'ensemble de validation (\texttt{X\_val}) en
+balayant 200 valeurs entre le 50\textsuperscript{e} et le 99,9\textsuperscript{e}
+percentile des erreurs de reconstruction. Pour chaque valeur, le F1-score est calculé.
+Le seuil maximisant ce score est retenu : \textbf{$\theta = 1{,}687408$}.
+
+\subsection{Visualisation de l'espace latent}
+
+La projection PCA du bottleneck (dimension 4) en 2D permet de vérifier qualitativement
+que les fraudes de validation tendent à se positionner \textbf{en périphérie des zones de
+forte densité normale} --- confirmant la pertinence du mécanisme de reconstruction comme
+score d'anomalie.
+
+% ---------------------------------------------------
+\section{Récapitulatif des configurations}
+% ---------------------------------------------------
+
+\begin{table}[H]
+\centering
+\caption{Récapitulatif des configurations de modèles construites}
+\label{tab:models_recap}
+\begin{tabular}{p{2.8cm}p{3cm}p{3cm}p{3.5cm}}
+\toprule
+\textbf{Configuration} & \textbf{Type} & \textbf{Données train}
+  & \textbf{Gestion déséquilibre} \\
+\midrule
+LR\_balanced  & Supervisé linéaire   & \texttt{X\_train}        & \texttt{class\_weight} \\
+LR\_smote     & Supervisé linéaire   & \texttt{X\_smote}        & SMOTE \\
+RF\_balanced  & Supervisé ensembliste & \texttt{X\_train}       & \texttt{class\_weight} \\
+RF\_smote     & Supervisé ensembliste & \texttt{X\_smote}       & SMOTE \\
+Autoencoder   & Non supervisé        & \texttt{X\_train\_normal} & Données normales seules \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+% ---------------------------------------------------
+
+Ce chapitre a décrit la conception et l'implémentation des cinq configurations de modèles
+étudiées. Les variantes supervisées montrent que le choix du seuil de décision influence
+fortement le compromis précision/rappel, et que \texttt{RF\_smote} s'impose comme la
+meilleure configuration supervisée. L'autoencoder complète ce dispositif par une logique
+non supervisée fondée sur la reconstruction, particulièrement utile lorsque les labels
+sont rares. Les premiers résultats sur l'ensemble de validation suggèrent que la forêt
+aléatoire dépasse les objectifs fixés (recall $> 0{,}70$, F1 $> 0{,}70$). L'évaluation
+comparative détaillée sur l'ensemble de test, ainsi que les mécanismes d'explicabilité,
+sont présentés dans le chapitre suivant.

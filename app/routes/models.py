@@ -5,7 +5,9 @@ GET /api/models — Métriques comparatives des 7 modèles
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+
+from app.auth.dependencies import CurrentUser, get_current_user
 
 router = APIRouter()
 
@@ -20,7 +22,10 @@ PRODUCTION_MODELS = {"XGB_smote", "AutoEncoder"}
 
 
 @router.get("/models")
-def get_models(request: Request):
+def get_models(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     baseline = request.app.state.models["baseline_report"]
     thresholds = request.app.state.models["thresholds"]
 

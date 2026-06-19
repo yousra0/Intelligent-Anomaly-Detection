@@ -1,12 +1,12 @@
 """
 app/services/schema_detector.py
 
-Détecte si le dataset correspond au schéma PaySim connu et sélectionne
+Détecte si le dataset correspond au schéma transactionnel standard et sélectionne
 le mode de prédiction optimal.
 
 Logique de décision
 ───────────────────
- mapping_result.success = True          → mode "paysim"   (XGB + AE)
+ mapping_result.success = True          → mode "standard" (XGB + AE)
  mapping_result.success = False :
    "amount" mappé ET ≥ 1 col numérique   → mode "ae_isoforest"
    "amount" mappé, 0 cols numériques     → mode "ae_only"
@@ -20,7 +20,7 @@ Notes
    remplit les features manquantes par des fallbacks (0).
  • L'IsoForest est toujours fitté on-the-fly sur les colonnes numériques
    du dataset brut (avant mapping) — pas le modèle iso_forest.pkl entraîné
-   sur PaySim qui ne serait pas pertinent sur un schéma inconnu.
+   sur le schéma standard qui ne serait pas pertinent sur un schéma inconnu.
 """
 
 from __future__ import annotations
@@ -38,9 +38,9 @@ _ISO_MIN_UNIQUE = 2
 
 @dataclass
 class SchemaDetectionResult:
-    mode: str              # "paysim" | "ae_isoforest" | "ae_only" | "isoforest"
+    mode: str              # "standard" | "ae_isoforest" | "ae_only" | "isoforest"
     n_mapped: int          # nombre de champs canoniques trouvés
-    n_paysim_required: int # nombre de champs requis PaySim
+    n_required: int        # nombre de champs requis du schéma transactionnel
     avg_confidence: float  # confiance moyenne du mapping
     use_xgb: bool
     use_ae: bool
@@ -51,6 +51,7 @@ class SchemaDetectionResult:
 
     @property
     def model_label(self) -> str:
+        """Construit l'étiquette lisible des modèles actifs, ex. 'XGBoost + Autoencoder'."""
         parts = []
         if self.use_xgb:
             parts.append("XGBoost")
@@ -64,7 +65,7 @@ class SchemaDetectionResult:
         return {
             "mode": self.mode,
             "n_mapped": self.n_mapped,
-            "n_paysim_required": self.n_paysim_required,
+            "n_required": self.n_required,
             "avg_confidence": round(self.avg_confidence, 3),
             "use_xgb": self.use_xgb,
             "use_ae": self.use_ae,
@@ -96,26 +97,26 @@ def detect_schema_mode(
     avg_conf = sum(conf_values) / len(conf_values) if conf_values else 0.0
     n_mapped = len(mapped_fields)
 
-    # Nombre de champs requis PaySim (dérivé des unmapped + mapped required)
+    # Nombre de champs requis du schéma transactionnel (dérivé des unmapped + mapped required)
     # On compte les champs qui ont un required=True dans SEMANTIC_FIELDS
     from app.services.column_mapper import SEMANTIC_FIELDS
     n_required = sum(1 for f in SEMANTIC_FIELDS.values() if f.required)
 
     warnings: list[str] = list(mapping_result.warnings)
 
-    # ── Mode PAYSIM (schéma complet) ─────────────────────────────────────────
+    # ── Mode STANDARD (schéma complet) ───────────────────────────────────────
     if mapping_result.success:
         return SchemaDetectionResult(
-            mode="paysim",
+            mode="standard",
             n_mapped=n_mapped,
-            n_paysim_required=n_required,
+            n_required=n_required,
             avg_confidence=avg_conf,
             use_xgb=True,
             use_ae=True,
             use_isoforest=False,
             numeric_cols_for_iso=[],
             reason=(
-                f"Schéma PaySim complet ({n_mapped}/{n_required} colonnes requises, "
+                f"Schéma transactionnel complet ({n_mapped}/{n_required} colonnes requises, "
                 f"confiance moy. {avg_conf:.0%}) → XGBoost + Autoencoder"
             ),
             warnings=warnings,
@@ -168,7 +169,7 @@ def detect_schema_mode(
         return SchemaDetectionResult(
             mode="isoforest",
             n_mapped=n_mapped,
-            n_paysim_required=n_required,
+            n_required=n_required,
             avg_confidence=avg_conf,
             use_xgb=False,
             use_ae=False,
@@ -181,7 +182,7 @@ def detect_schema_mode(
     if can_ae and can_iso:
         mode = "ae_isoforest"
         reason = (
-            f"Schéma partiel ({n_mapped}/{n_required} colonnes PaySim). "
+            f"Schéma partiel ({n_mapped}/{n_required} colonnes requises). "
             f"Autoencoder (features avec fallbacks) + "
             f"IsolationForest on-the-fly sur {len(numeric_cols)} colonnes numériques."
         )
@@ -202,14 +203,14 @@ def detect_schema_mode(
             f"IsolationForest on-the-fly sur {len(numeric_cols)} colonnes numériques."
         )
         warnings.append(
-            "Colonne 'amount' non détectée — Autoencoder PaySim désactivé. "
+            "Colonne 'amount' non détectée — Autoencoder désactivé. "
             "Les scores d'anomalie sont calculés sur les colonnes numériques brutes."
         )
 
     return SchemaDetectionResult(
         mode=mode,
         n_mapped=n_mapped,
-        n_paysim_required=n_required,
+        n_required=n_required,
         avg_confidence=avg_conf,
         use_xgb=False,
         use_ae=can_ae,

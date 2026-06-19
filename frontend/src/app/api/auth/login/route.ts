@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
-import { userStore } from "@/lib/store/userStore";
+import { userRepository } from "@/lib/db/repositories/userRepository";
 import type { LoginCredentials, AuthResponse } from "@/types";
 
 const JWT_SECRET = new TextEncoder().encode(
@@ -21,13 +21,20 @@ export async function POST(req: Request) {
     );
   }
 
-  // Authenticate against userStore (credentials from DEMO_PASSWORD env var)
-  const userRecord = userStore.getByEmail(body.email);
-  if (!userRecord || userRecord.password !== body.password) {
+  const userRecord = await userRepository.getByEmail(body.email);
+  if (!userRecord) {
     return NextResponse.json({ error: "Identifiants invalides." }, { status: 401 });
   }
 
-  const { password: _, ...userWithoutPassword } = userRecord;
+  const passwordValid = await userRepository.verifyPassword(userRecord.password, body.password);
+  if (!passwordValid) {
+    return NextResponse.json({ error: "Identifiants invalides." }, { status: 401 });
+  }
+
+  const userPublic = await userRepository.getById(userRecord.id);
+  if (!userPublic) {
+    return NextResponse.json({ error: "Utilisateur introuvable." }, { status: 404 });
+  }
 
   const expiresIn = parseInt(process.env.JWT_EXPIRY ?? "28800");
 
@@ -42,10 +49,7 @@ export async function POST(req: Request) {
     .setExpirationTime(Math.floor(Date.now() / 1000) + expiresIn)
     .sign(JWT_SECRET);
 
-  const response = NextResponse.json<AuthResponse>({
-    user: userWithoutPassword,
-    token,
-  });
+  const response = NextResponse.json<AuthResponse>({ user: userPublic, token });
 
   response.cookies.set("pwc_token", token, {
     httpOnly: true,
@@ -54,6 +58,17 @@ export async function POST(req: Request) {
     maxAge: expiresIn,
     path: "/",
   });
+
+  // Audit login event (fire-and-forget — do not block response)
+  import("@/lib/db/repositories/auditLogRepository").then(({ auditLogRepository }) => {
+    auditLogRepository.add({
+      action: "login",
+      user_id: userRecord.id,
+      user_name: userRecord.name,
+      user_role: userRecord.role as import("@/types").UserRole,
+      details: "Connexion réussie",
+    }).catch(() => {});
+  }).catch(() => {});
 
   return response;
 }

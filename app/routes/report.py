@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
+from app.auth.dependencies import CurrentUser, get_current_user
 from app.services.report_gen      import generate_pwc_report
 from app.services.report_gen_docx import generate_pwc_docx_report
 
@@ -18,7 +19,18 @@ router = APIRouter()
 
 
 @router.post("/report")
-async def generate_report(request: Request):
+async def generate_report(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    """
+    Génère un rapport PDF au format PwC (thème orange/navy).
+
+    Accepte soit un body JSON contenant les résultats de prédiction,
+    soit un body vide — dans ce cas, le dernier résultat en cache est utilisé.
+    Le PDF est retourné en streaming (StreamingResponse) pour éviter de charger
+    l'intégralité du fichier en mémoire avant l'envoi.
+    """
     try:
         body = await request.json()
     except Exception:
@@ -90,7 +102,10 @@ def _build_predict_result(request: Request, body: dict) -> dict:
 
 
 @router.post("/report/docx")
-async def generate_report_docx(request: Request):
+async def generate_report_docx(
+    request: Request,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Génère le rapport Word en remplissant le template PwC (exemple_rapport.docx)."""
     try:
         body = await request.json()

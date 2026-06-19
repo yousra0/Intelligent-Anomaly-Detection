@@ -29,7 +29,7 @@ const MODEL_LABELS: Record<string, string> = {
   combined:    "Combiné (XGB + AE)",
   xgboost:     "XGBoost",
   autoencoder: "AutoEncoder",
-  paysim:      "PaySim",
+  standard:    "Schéma complet",
   ae_isoforest:"AE + IsoForest",
   ae_only:     "AutoEncoder seul",
   isoforest:   "IsoForest",
@@ -86,7 +86,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Historique d'analyses</h1>
+          <h1 className="text-2xl font-bold text-foreground">Historique d'analyses</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {runs.length} analyse{runs.length !== 1 ? "s" : ""} — {totalAnomalies} anomalie(s) totales
           </p>

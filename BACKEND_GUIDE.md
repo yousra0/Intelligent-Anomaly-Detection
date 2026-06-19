@@ -1,214 +1,559 @@
-# Guide du Backend FastAPI — Système de Détection d'Anomalies
+# Guide Complet du Backend FastAPI — Système de Détection d'Anomalies
+### (Document technique détaillé — de A à Z, adapté à une validation par expert)
+
+---
 
 ## Table des matières
 
-1. [Vue d'ensemble](#1-vue-densemble)
-2. [Structure du projet](#2-structure-du-projet)
-3. [Installation et configuration](#3-installation-et-configuration)
-4. [Lancement du serveur](#4-lancement-du-serveur)
-5. [Endpoints de l'API](#5-endpoints-de-lapi)
-6. [Pipeline de prédiction](#6-pipeline-de-prédiction)
-7. [Intégration LLM](#7-intégration-llm)
-8. [Génération de rapports](#8-génération-de-rapports)
-9. [Tests](#9-tests)
-10. [Variables d'environnement](#10-variables-denvironnement)
-11. [Architecture des services](#11-architecture-des-services)
-12. [Notes de déploiement](#12-notes-de-déploiement)
-13. [Modifications récentes du backend](#13-modifications-récentes-du-backend)
+1. [Qu'est-ce qu'un backend et pourquoi FastAPI ?](#1-quest-ce-quun-backend-et-pourquoi-fastapi)
+2. [Vue d'ensemble du système](#2-vue-densemble-du-système)
+3. [Structure du projet](#3-structure-du-projet)
+4. [Comment les modèles des notebooks ont été intégrés](#4-comment-les-modèles-des-notebooks-ont-été-intégrés)
+5. [Démarrage de l'application — le fichier main.py](#5-démarrage-de-lapplication--le-fichier-mainpy)
+6. [Pipeline de prédiction — de bout en bout](#6-pipeline-de-prédiction--de-bout-en-bout)
+7. [Les routes (endpoints) — explication complète](#7-les-routes-endpoints--explication-complète)
+8. [Services internes — comment ils fonctionnent](#8-services-internes--comment-ils-fonctionnent)
+9. [Intégration LLM](#9-intégration-llm)
+10. [Génération de rapports](#10-génération-de-rapports)
+11. [La documentation interactive Swagger](#11-la-documentation-interactive-swagger)
+12. [Variables d'environnement et configuration](#12-variables-denvironnement-et-configuration)
+13. [Installation et déploiement pas à pas](#13-installation-et-déploiement-pas-à-pas)
+14. [Tests](#14-tests)
+15. [Architecture des services et flux de données](#15-architecture-des-services-et-flux-de-données)
+16. [Détail des artefacts ML produits par les notebooks](#16-détail-des-artefacts-ml-produits-par-les-notebooks)
+17. [Modifications récentes et corrections](#17-modifications-récentes-et-corrections)
+18. [Questions fréquentes d'un expert technique](#18-questions-fréquentes-dun-expert-technique)
 
 ---
 
-## 1. Vue d'ensemble
+## 1. Qu'est-ce qu'un backend et pourquoi FastAPI ?
 
-Le backend est une API REST construite avec **FastAPI** exposant un pipeline complet de détection de fraude financière.
+### Définition simple
 
-### Modèles de production (ensemble principal)
+Un **backend** est la partie invisible d'une application web — le cerveau. Quand vous appuyez sur un bouton sur le site, c'est le backend qui reçoit la demande, effectue les calculs (ici : la détection de fraude), et renvoie le résultat.
 
-Le système repose sur **deux modèles complémentaires** déployés ensemble en production :
+Le frontend (interface React) est la partie visible (les graphiques, tableaux, boutons). Le frontend et le backend communiquent via des **requêtes HTTP**, exactement comme un navigateur qui charge une page web.
 
-| Modèle | Rôle | Type | Seuil |
-|--------|------|------|-------|
-| **XGBoost** (`XGB_smote`) | Modèle supervisé principal — classifie chaque transaction | Arbre boosté (XGBClassifier) | 0.355 |
-| **AutoEncoder** | Détecteur d'anomalies — mesure l'écart de reconstruction | Réseau de neurones PyTorch (FraudAutoEncoder) | 1.753 (MSE) |
+### Pourquoi FastAPI ?
 
-En mode PaySim (schéma complet), les deux modèles sont utilisés simultanément :
-- **XGBoost** fournit le `xgb_score` (0–1) — c'est lui qui décide `is_fraud_predicted`
-- **AutoEncoder** fournit l'`ae_score` (MSE normalisé) — signal complémentaire d'anomalie
+**FastAPI** est un framework Python moderne pour construire des APIs REST. Il a été choisi pour trois raisons :
 
-Les autres modèles (LR, RF, IsoForest) ont été évalués lors de la phase de recherche mais **ne sont pas utilisés en production**.
+| Raison | Explication |
+|--------|-------------|
+| **Performance** | L'un des frameworks Python les plus rapides — comparable à Node.js grâce à `asyncio` |
+| **Documentation automatique** | Génère Swagger UI et ReDoc automatiquement depuis le code |
+| **Typage strict** | Utilise Pydantic pour valider automatiquement les données entrantes/sortantes |
 
-### Fonctionnalités complètes
+### Qu'est-ce qu'une API REST ?
 
-- **Prédiction multi-modes** : 4 modes selon le schéma CSV détecté (voir section 5)
-- **Détection automatique de schéma** : adapte le pipeline aux colonnes disponibles
-- **Explicabilité** : SHAP (XGBoost) + Proxy AE (|x−AE(x)|) + LIME + explication LLM en langage naturel
-- **Profilage de dataset** : analyse qualité, statistiques, recommandations
-- **Génération de rapports** : PDF à la charte PwC (fpdf2) **et** Word DOCX depuis template
-- **Intégration LLM** : Groq (llama-3.3-70b), Gemini, ou HuggingFace
+Une API REST est un ensemble de "points d'entrée" (routes/endpoints) que le frontend peut appeler. Chaque route correspond à une action :
+
+```
+POST /api/predict   → envoyer un fichier CSV, recevoir les prédictions de fraude
+GET  /api/models    → obtenir les métriques des modèles ML
+GET  /api/explain/5 → obtenir l'explication de la transaction numéro 5
+POST /api/report    → générer et télécharger un rapport PDF
+```
+
+`POST` signifie "j'envoie des données au serveur". `GET` signifie "je demande des données au serveur".
 
 ---
 
-## 2. Structure du projet
+## 2. Vue d'ensemble du système
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      INTERFACE UTILISATEUR                       │
+│              (React + Next.js, http://localhost:3000)           │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │ Requêtes HTTP (JSON/multipart)
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                    BACKEND FastAPI                               │
+│              (Python, http://localhost:8000)                     │
+│                                                                  │
+│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────────┐  │
+│  │  /api/predict│  │/api/explain  │  │  /api/report (PDF)   │  │
+│  │  /api/profile│  │/api/models   │  │  /api/report/docx    │  │
+│  └──────┬──────┘  └──────┬───────┘  └──────────────────────┘  │
+│         │                │                                       │
+│         ▼                ▼                                       │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │                    SERVICES INTERNES                        │ │
+│  │  ColumnMapper → SchemaDetector → FeatureBuilder            │ │
+│  │  Predictor (XGBoost + AutoEncoder)                         │ │
+│  │  Explainer (SHAP + AE Proxy + LIME) → LLMHelper           │ │
+│  └────────────────────────────────────────────────────────────┘ │
+│                              │                                   │
+│                              ▼                                   │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │              MODÈLES ML (chargés au démarrage)             │ │
+│  │  xgb_smote.pkl │ autoencoder_weights.pt │ scaler.pkl       │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Modèles de production (les deux modèles qui tournent réellement)
+
+Le système utilise **deux modèles complémentaires** simultanément quand le CSV est au format PaySim :
+
+| Modèle | Ce qu'il fait | Fichier |
+|--------|---------------|---------|
+| **XGBoost** (`XGB_smote`) | Modèle supervisé : a été entraîné avec des exemples de fraudes connues. Prédit la probabilité de fraude (0→1). C'est lui qui décide si c'est une fraude. | `outputs/models/xgb_smote.pkl` |
+| **AutoEncoder** | Réseau de neurones non supervisé : a été entraîné uniquement sur des transactions légitimes. Mesure à quel point une transaction est "anormale". | `outputs/models/autoencoder/` |
+
+**Analogie** : XGBoost est comme un expert qui a vu des milliers de fraudes et reconnaît les patterns. L'AutoEncoder est comme une personne qui connaît parfaitement les transactions normales et signale tout ce qui lui semble inhabituel.
+
+---
+
+## 3. Structure du projet
 
 ```
 anomaly_detection_project/
-├── app/                          ← Backend FastAPI
-│   ├── main.py                   ← Point d'entrée, lifespan, CORS, routeurs
-│   ├── routes/
+│
+├── app/                          ← Tout le code du backend FastAPI
+│   ├── main.py                   ← Point d'entrée : lance le serveur, charge les modèles
+│   │
+│   ├── routes/                   ← Les endpoints (ce que le frontend peut appeler)
 │   │   ├── predict.py            ← POST /api/predict
-│   │   ├── explain.py            ← GET  /api/explain/{tx_id}  +  POST /api/explain/batch
-│   │   ├── report.py             ← POST /api/report  +  POST /api/report/docx
+│   │   ├── explain.py            ← GET  /api/explain/{tx_id}
+│   │   │                            POST /api/explain/batch
+│   │   ├── report.py             ← POST /api/report  (PDF)
+│   │   │                            POST /api/report/docx (Word)
 │   │   ├── models.py             ← GET  /api/models
 │   │   └── profile.py            ← POST /api/profile
-│   └── services/
-│       ├── predictor.py          ← Chargement modèles + pipeline PaySim (XGB + AE)
-│       ├── generic_predictor.py  ← Pipeline fallback (schéma inconnu)
-│       ├── llm_service.py        ← Wrapper LLMHelper
-│       ├── explainer.py          ← SHAP TreeExplainer (XGB), Proxy AE (|x−AE(x)|), LIME
-│       ├── dataset_profiler.py   ← Analyse qualité du dataset
-│       ├── column_mapper.py      ← Détection sémantique des colonnes (4 niveaux)
-│       ├── schema_detector.py    ← Sélection du mode de prédiction
-│       ├── feature_builder.py    ← Construction features adaptatives (14 features)
-│       ├── feature_engineer.py   ← Features dérivées (temporel, balance, comportemental)
-│       ├── report_gen.py         ← Génération PDF avec fpdf2
-│       └── report_gen_docx.py    ← Génération DOCX depuis template python-docx
+│   │
+│   └── services/                 ← La logique métier (les "cerveaux" de chaque action)
+│       ├── predictor.py          ← Charge les modèles + exécute XGBoost + AutoEncoder
+│       ├── generic_predictor.py  ← Prédiction pour les CSV non-PaySim
+│       ├── column_mapper.py      ← Détecte automatiquement les colonnes du CSV
+│       ├── schema_detector.py    ← Choisit quel(s) modèle(s) utiliser
+│       ├── feature_builder.py    ← Construit les 14 variables pour les modèles
+│       ├── feature_engineer.py   ← Variables enrichies supplémentaires
+│       ├── dataset_profiler.py   ← Analyse la qualité du CSV
+│       ├── explainer.py          ← SHAP + Proxy AE + LIME
+│       ├── llm_service.py        ← Connexion au modèle de langage (LLM)
+│       ├── report_gen.py         ← Génère le PDF style PwC
+│       └── report_gen_docx.py    ← Génère le Word depuis template
 │
-├── src/                          ← Bibliothèque ML (ml_core)
-│   ├── models/                   ← Définitions AutoEncoder PyTorch + modèles ML
-│   ├── feature_engineering/      ← Features temporelles, comportementales
-│   ├── llm_integration/          ← LLMHelper (appels API + retry + parsing JSON)
-│   ├── preprocessing/            ← Chargement et nettoyage données
-│   ├── explainability/           ← SHAP et LIME (non utilisé directement par l'API)
-│   └── utils/                    ← Évaluateur, utilitaires
-│
-├── config/
-│   ├── config.yaml               ← Configuration générale du projet
-│   └── llm_config.yaml           ← Provider LLM, modèles, paramètres de génération
-│
-├── exemple_rapport.docx          ← Template Word PwC ({{placeholders}})
-│
-├── outputs/
+├── src/                          ← Bibliothèque ML réutilisable (installée comme package)
 │   ├── models/
-│   │   ├── xgb_smote.pkl         ← XGBClassifier direct (joblib)
-│   │   ├── rf_smote.pkl          ← dict{"model": RandomForestClassifier}
-│   │   ├── rf_balanced.pkl       ← dict{"model": RandomForestClassifier}
-│   │   ├── lr_smote.pkl          ← dict{"model": LogisticRegression}
-│   │   ├── lr_balanced.pkl       ← dict{"model": LogisticRegression}
-│   │   ├── iso_forest.pkl        ← IsolationForest direct (joblib)
-│   │   ├── iso_forest_scaler.pkl ← MinMaxScaler pour la normalisation des scores AE
-│   │   ├── scaler.pkl            ← StandardScaler (6 colonnes SCALE_COLS)
-│   │   ├── features.json         ← Liste des 14 features attendues
-│   │   ├── optimal_thresholds.json ← Seuils optimaux LR/RF/XGB/IsoForest
+│   │   ├── autoencoder.py        ← Définition PyTorch de l'AutoEncoder + save/load
+│   │   └── ml_models.py          ← Définitions des autres modèles ML
+│   ├── llm_integration/
+│   │   └── llm_helper.py         ← Wrapper LLM (Groq, Gemini, HuggingFace)
+│   └── ...
+│
+├── outputs/                      ← Artefacts produits par les notebooks (JAMAIS touchés manuellement)
+│   ├── models/
+│   │   ├── xgb_smote.pkl         ← XGBoost entraîné (Notebook NB02/NB03)
+│   │   ├── scaler.pkl            ← StandardScaler pour normaliser les 6 features
+│   │   ├── features.json         ← Liste exacte des 14 features attendues
+│   │   ├── optimal_thresholds.json ← Seuils optimaux calculés sur validation
 │   │   └── autoencoder/
-│   │       ├── autoencoder_weights.pt  ← Poids PyTorch
-│   │       └── autoencoder_meta.pkl    ← Métadonnées (threshold=1.753, architecture)
+│   │       ├── autoencoder_weights.pt  ← Poids PyTorch (Notebook NB05)
+│   │       └── autoencoder_meta.pkl    ← Architecture, seuil, stats MSE
 │   └── reports/
 │       ├── baseline_report.json  ← Métriques LR/RF/XGB/IsoForest (NB03)
 │       └── autoencoder_report.json ← Métriques AutoEncoder (NB05)
 │
-├── tests/                        ← Suite de tests pytest (13 fichiers)
-├── .env                          ← Clés API (ne pas commiter)
-├── requirements.txt
-└── pyproject.toml
+├── config/
+│   ├── config.yaml               ← Configuration générale
+│   └── llm_config.yaml           ← Choix du provider LLM et paramètres
+│
+├── exemple_rapport.docx          ← Template Word avec {{placeholders}}
+├── .env                          ← Clés API (ne jamais commiter sur Git)
+├── requirements.txt              ← Dépendances Python
+└── pyproject.toml                ← Configuration du package src/ (ml_core)
 ```
 
 ---
 
-## 3. Installation et configuration
+## 4. Comment les modèles des notebooks ont été intégrés
 
-### Prérequis
+C'est une question centrale pour un expert technique. Voici le processus complet.
 
-- Python 3.10 ou supérieur
-- pip ou uv
+### Le problème fondamental
 
-### Installation des dépendances
+Les notebooks Jupyter sont excellents pour explorer et entraîner des modèles. Mais un notebook ne peut pas être "appelé" par une API web. Il faut **sauvegarder** les modèles entraînés dans des fichiers, puis **recharger** ces fichiers dans le backend.
 
-```bash
-# Créer un environnement virtuel
-python -m venv .venv
+### Étape 1 — Les notebooks entraînent et sauvegardent
 
-# Activer l'environnement (Windows)
-.venv\Scripts\activate
+**Notebook NB02 (Preprocessing)** produit :
+- `outputs/models/scaler.pkl` — le StandardScaler ajusté sur les données d'entraînement
+- `outputs/models/features.json` — la liste exacte des 14 features dans l'ordre attendu
 
-# Activer l'environnement (Linux/Mac)
-source .venv/bin/activate
+```python
+# Dans NB02 (simplifié)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_train[SCALE_COLS])
+joblib.dump(scaler, "outputs/models/scaler.pkl")
 
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Installer le package ml_core en mode éditable
-pip install -e .
+features_meta = {
+    "all_features": FEATURE_COLS,  # ["step", "hour", "day", ..., "log_amount"]
+    "scale_cols": SCALE_COLS,
+    ...
+}
+with open("outputs/models/features.json", "w") as f:
+    json.dump(features_meta, f)
 ```
 
-### Configurer les clés API
+**Notebook NB03 (Modèles supervisés)** produit :
+- `outputs/models/xgb_smote.pkl` — XGBClassifier entraîné avec SMOTE
+- `outputs/models/rf_smote.pkl`, `lr_balanced.pkl`, etc. — autres modèles évalués
+- `outputs/models/optimal_thresholds.json` — seuil 0.355 calculé sur validation
+- `outputs/reports/baseline_report.json` — métriques recall, precision, F1, ROC-AUC
 
-Créer un fichier `.env` à la racine du projet :
+```python
+# Dans NB03 (simplifié)
+xgb = XGBClassifier(...)
+xgb.fit(X_smote, y_smote)
+joblib.dump(xgb, "outputs/models/xgb_smote.pkl")
 
-```env
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxx
-HF_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-```
+# Recherche du seuil optimal sur validation (PAS sur test)
+threshold = find_optimal_threshold(xgb, X_val, y_val, metric="f1")
+# → 0.355
 
-Le provider actif est contrôlé dans [config/llm_config.yaml](config/llm_config.yaml) :
-
-```yaml
-active_provider: groq   # options: groq | gemini | huggingface
-```
-
----
-
-## 4. Lancement du serveur
-
-### Développement (avec rechargement automatique)
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### Production
-
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
-```
-
-### Vérifier que le serveur fonctionne
-
-```bash
-curl http://localhost:8000/api/health
-```
-
-Réponse attendue :
-```json
-{
-  "status": "ok",
-  "models_loaded": true,
-  "llm_available": true
+baseline_report = {
+    "models": [
+        {"name": "XGB_smote", "optimal_threshold": 0.355,
+         "test_metrics": {"recall": 0.8462, "f1": 0.8354, ...}}
+    ]
 }
 ```
 
-### Documentation interactive
+**Notebook NB05 (AutoEncoder)** produit :
+- `outputs/models/autoencoder/autoencoder_weights.pt` — poids PyTorch
+- `outputs/models/autoencoder/autoencoder_meta.pkl` — architecture + seuil 1.753
+- `outputs/reports/autoencoder_report.json` — métriques de l'AE
 
-Une fois le serveur lancé :
+```python
+# Dans NB05 (simplifié)
+ae = FraudAutoEncoder()
+ae.build(n_features=14)
+ae.fit(X_train_normal)           # Entraîné UNIQUEMENT sur les transactions légitimes
+threshold = ae.find_optimal_threshold(X_val, y_val)  # → 1.753
+ae.save("outputs/models/autoencoder")
+# Crée : autoencoder_weights.pt (torch.save) + autoencoder_meta.pkl (joblib)
+```
 
-- **Swagger UI** : http://localhost:8000/docs
-- **ReDoc** : http://localhost:8000/redoc
+### Étape 2 — Le backend charge tout au démarrage
+
+Quand on lance le serveur, la fonction `load_all_models()` dans `app/services/predictor.py` charge **tous les artefacts en mémoire vive (RAM)** une seule fois :
+
+```python
+# app/services/predictor.py — load_all_models()
+def load_all_models(project_root: Path) -> dict:
+    models_dir = project_root / "outputs" / "models"
+    reports_dir = project_root / "outputs" / "reports"
+
+    # 1. Charger la liste des features et les seuils
+    with open(models_dir / "features.json") as f:
+        features_meta = json.load(f)   # → {"all_features": ["step", "hour", ...]}
+    with open(models_dir / "optimal_thresholds.json") as f:
+        thresholds_raw = json.load(f)  # → {"XGB_smote": 0.355, ...}
+
+    # 2. Charger les métriques
+    with open(reports_dir / "baseline_report.json") as f:
+        baseline_report = json.load(f)
+    with open(reports_dir / "autoencoder_report.json") as f:
+        ae_report = json.load(f)
+
+    # 3. Fusionner les métriques AE dans baseline_report
+    # (Les deux fichiers sont séparés car l'AE a été entraîné dans un NB différent)
+    ae_names = {m.get("name") for m in baseline_report.get("models", [])}
+    if "AutoEncoder" not in ae_names:
+        baseline_report["models"].append({
+            "name": "AutoEncoder",
+            "optimal_threshold": ae_report["threshold"]["optimal"],  # 1.753
+            "train_time_s": ae_report["training"]["train_time_s"],
+            "test_metrics": ae_report["test_metrics"],
+        })
+
+    # 4. Charger les modèles ML (joblib pour sklearn, PyTorch pour l'AE)
+    ae = FraudAutoEncoder.load(models_dir / "autoencoder")
+    # FraudAutoEncoder.load() :
+    #   1. lit autoencoder_meta.pkl (architecture, seuil, hyperparamètres)
+    #   2. reconstruit le réseau de neurones PyTorch en mémoire
+    #   3. charge les poids depuis autoencoder_weights.pt
+
+    return {
+        "scaler": joblib.load(models_dir / "scaler.pkl"),
+        "features": features_meta["all_features"],
+        "thresholds": thresholds_raw,
+        "xgb": joblib.load(models_dir / "xgb_smote.pkl"),
+        "ae": ae,
+        "ae_threshold": float(ae.threshold),  # 1.753
+        "iso_forest": joblib.load(models_dir / "iso_forest.pkl"),
+        "baseline_report": baseline_report,
+        ...
+    }
+```
+
+### Étape 3 — Les modèles sont accessibles via app.state
+
+FastAPI permet de stocker des objets globaux accessibles dans toutes les routes via `app.state` :
+
+```python
+# Au démarrage (lifespan)
+app.state.models = load_all_models(PROJECT_ROOT)
+
+# Dans n'importe quelle route
+@router.post("/predict")
+async def predict(request: Request, ...):
+    models = request.app.state.models   # accès direct au dict
+    xgb = models["xgb"]                # XGBClassifier prêt à l'emploi
+    ae = models["ae"]                  # FraudAutoEncoder prêt à l'emploi
+```
+
+### Pourquoi ne pas réentraîner les modèles à chaque requête ?
+
+Un expert posera cette question. La réponse : l'entraînement prend **3–5 minutes** pour XGBoost et **~3 minutes** pour l'AutoEncoder. On les entraîne une fois dans les notebooks, on sauvegarde, et le backend se contente de charger et d'utiliser. C'est le principe du "train offline, serve online".
+
+### L'AutoEncoder — Architecture technique
+
+```
+Entrée (14 features)
+    │
+    ▼
+Linear(14 → 10) → BatchNorm → ReLU → Dropout(0.2)  ← Encodeur couche 1
+    │
+    ▼
+Linear(10 → 7)  → BatchNorm → ReLU → Dropout(0.2)  ← Encodeur couche 2
+    │
+    ▼
+Linear(7 → 4)   → ReLU                              ← Bottleneck (espace latent)
+    │
+    ▼
+Linear(4 → 7)   → BatchNorm → ReLU → Dropout(0.2)  ← Décodeur couche 1
+    │
+    ▼
+Linear(7 → 10)  → BatchNorm → ReLU → Dropout(0.2)  ← Décodeur couche 2
+    │
+    ▼
+Linear(10 → 14)                                      ← Sortie (reconstruction)
+```
+
+**Principe de détection** :
+- Entraîné uniquement sur 139 818 transactions légitimes → il apprend à reconstruire les patterns normaux
+- Sur une transaction légitime → erreur de reconstruction faible (≤ 1.753)
+- Sur une transaction frauduleuse → erreur de reconstruction élevée (> 1.753) — le modèle ne "reconnaît" pas le pattern
+
+**Score normalisé** (`predict_score`) : l'erreur MSE brute est divisée par le 99ème percentile de l'erreur sur les données d'entraînement → score entre 0 et 1 affiché dans l'API.
 
 ---
 
-## 5. Endpoints de l'API
+## 5. Démarrage de l'application — le fichier main.py
+
+Le fichier `app/main.py` est le point d'entrée. Voici ce qu'il fait ligne par ligne :
+
+```python
+# app/main.py
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # ═══ PHASE DÉMARRAGE (avant d'accepter des requêtes) ═══
+    
+    # 1. Charger tous les modèles ML en RAM
+    app.state.models = load_all_models(PROJECT_ROOT)
+    # → dict avec xgb, ae, scaler, thresholds, baseline_report...
+    
+    # 2. Initialiser le LLM
+    try:
+        app.state.llm_helper = get_llm_helper(PROJECT_ROOT)
+        # → LLMHelper connecté à Groq/Gemini/HuggingFace selon llm_config.yaml
+    except Exception as e:
+        app.state.llm_helper = None
+        # → mode fallback : explications basées sur des règles, sans IA
+    
+    # 3. Initialiser le cache en mémoire
+    app.state.results_cache = {}
+    # → stockera les résultats du dernier /api/predict pour /api/explain
+    
+    yield   # ← Le serveur tourne ici, accept les requêtes
+    
+    # ═══ PHASE ARRÊT ═══
+    # (nettoyage si nécessaire)
+```
+
+```python
+# Création de l'application FastAPI
+app = FastAPI(
+    title="API Détection de Fraude — PFE",
+    version="1.0.0",
+    lifespan=lifespan,  # ← exécute lifespan() au démarrage/arrêt
+)
+
+# Configuration CORS : autorise le frontend à appeler le backend
+# (par défaut les navigateurs bloquent les appels cross-origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_methods=["*"],    # GET, POST, DELETE...
+    allow_headers=["*"],    # Content-Type, Authorization...
+)
+
+# Enregistrement des routeurs avec le préfixe /api
+app.include_router(predict.router, prefix="/api")   # → /api/predict
+app.include_router(explain.router, prefix="/api")   # → /api/explain/{tx_id}
+app.include_router(report.router,  prefix="/api")   # → /api/report
+app.include_router(models_route.router, prefix="/api")  # → /api/models
+app.include_router(profile.router, prefix="/api")   # → /api/profile
+```
+
+**Point clé** : chaque `router` est défini dans son propre fichier dans `app/routes/`. Cela permet de **séparer les responsabilités** (chaque fichier gère un domaine fonctionnel).
+
+---
+
+## 6. Pipeline de prédiction — de bout en bout
+
+Voici exactement ce qui se passe quand le frontend envoie un fichier CSV :
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 1 : Lecture du CSV                                          │
+│  Le fichier arrivé en multipart/form-data est lu par pandas        │
+│  → df = pd.read_csv(io.BytesIO(content))                          │
+│  → Validation : fichier non vide, parseable                        │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 2 : Profilage du dataset (dataset_profiler.py)              │
+│  Analyse chaque colonne : type (numérique/catégoriel/datetime),    │
+│  valeurs manquantes, asymétrie statistique, cardinalité            │
+│  → Produit un DatasetProfile utilisé par le feature builder        │
+│  → Calcule un score qualité global (0-100)                         │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 3 : Mapping sémantique des colonnes (column_mapper.py)      │
+│  Le CSV peut avoir n'importe quel nom de colonne.                  │
+│  Le mapper détecte automatiquement à quoi correspond chaque colonne│
+│  en utilisant 4 niveaux de matching :                              │
+│                                                                     │
+│    Niveau 1 — Alias exact (confiance 1.00)                         │
+│      "amount", "montant", "amt" → amount                           │
+│    Niveau 2 — Alias normalisé (confiance 0.95)                     │
+│      "AMOUNT", "Amount" → amount (insensible à la casse)           │
+│    Niveau 3 — Signaux composés (confiance 0.80)                    │
+│      colonne contenant "old" + "balance" + "orig" → oldbalanceOrg  │
+│    Niveau 4 — Fuzzy matching (confiance 0.60)                      │
+│      "amnt" → amount via SequenceMatcher                           │
+│                                                                     │
+│  → MappingResult.success = True si TOUTES les colonnes             │
+│    requises PaySim sont trouvées                                    │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 4 : Détection du mode (schema_detector.py)                  │
+│                                                                     │
+│  mapping.success = True ?                                           │
+│    → OUI  : mode "paysim"      → XGBoost + AutoEncoder            │
+│    → NON  : "amount" mappé ?                                        │
+│               → OUI + ≥1 col num. : mode "ae_isoforest"           │
+│               → OUI + 0 col num.  : mode "ae_only"                │
+│               → NON + ≥1 col num. : mode "isoforest"              │
+│               → Rien              : mode dégradé (tout FAIBLE)     │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 5 : Construction des 14 features (feature_builder.py)       │
+│                                                                     │
+│  Feature               Source                  Calcul              │
+│  ─────────────────────────────────────────────────────────────     │
+│  step                  colonne "step"           direct (numérique) │
+│  hour                  step                     step % 24          │
+│  day                   step                     step // 24         │
+│  week                  step                     step // 168        │
+│  high_risk_hour        hour                     hour ∈ [0-9, 23]  │
+│  is_transfer_or_cashout type                    type ∈ [TRANSFER,  │
+│                                                  CASH_OUT]         │
+│  balance_diff_orig     oldbalanceOrg,           oldBalance -        │
+│                        newbalanceOrig           newBalance          │
+│  dest_zero_balance     oldbalanceDest           oldbalanceDest == 0│
+│  type_CASH_IN          type                     OHE (0 ou 1)       │
+│  type_CASH_OUT         type                     OHE (0 ou 1)       │
+│  type_DEBIT            type                     OHE (0 ou 1)       │
+│  type_PAYMENT          type                     OHE (0 ou 1)       │
+│  type_TRANSFER         type                     OHE (0 ou 1)       │
+│  log_amount            amount                   log(1 + amount)    │
+│                                                                     │
+│  Puis : StandardScaler sur 6 colonnes (step, hour, day, week,     │
+│         log_amount, balance_diff_orig) — même scaler que NB02      │
+│  → X_arr : numpy array (N, 14) dtype float32                       │
+│                                                                     │
+│  Si une colonne est absente → valeur 0 + avertissement dans la     │
+│  réponse JSON (dégradation gracieuse, jamais d'erreur fatale)      │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 6 : Feature engineering enrichi (feature_engineer.py)       │
+│  15 features supplémentaires calculées pour le frontend/rapports   │
+│  (NON utilisées par XGBoost/AE — informatives uniquement) :        │
+│  temporel : eng_tx_day_of_week, eng_is_weekend, eng_is_business_h  │
+│  balance  : eng_drain_pct_src, eng_amount_ratio_src, ...           │
+│  comportemental : eng_orig_tx_count, eng_orig_unique_dests, ...    │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 7 : Prédiction                                              │
+│                                                                     │
+│  Mode "paysim" → predictor.predict_batch(X_arr, models, df)        │
+│                                                                     │
+│    xgb_scores = xgb.predict_proba(X_arr)[:, 1]  → [0.99, 0.02...] │
+│    ae_scores  = ae.predict_score(X_arr)          → [0.62, 0.10...] │
+│                                                                     │
+│    Pour chaque transaction :                                        │
+│      xgb_score ≥ 0.355 → is_fraud_predicted = True                 │
+│      xgb_score ≥ 0.355 → risk_level = "CRITIQUE"                  │
+│      0.5 ≤ xgb_score < 0.355 → risk_level = "ELEVE"               │
+│      xgb_score < 0.5   → risk_level = "FAIBLE"                    │
+│                                                                     │
+│  Mode générique → generic_predictor.predict_generic_batch()        │
+│    IsoForest fitté ON-THE-FLY sur ce batch (contamination 5%)      │
+└───────────────────────────────┬────────────────────────────────────┘
+                                │
+                                ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  ÉTAPE 8 : Mise en cache + réponse JSON                            │
+│                                                                     │
+│  app.state.results_cache = {X_arr, df_enriched, transactions}      │
+│  → permet à /api/explain de retrouver les features sans recalcul   │
+│                                                                     │
+│  Réponse JSON retournée au frontend :                               │
+│  { n_transactions, n_fraud, fraud_rate_pct, amount_at_risk,        │
+│    model_used, prediction_mode, schema_detection, column_mapping,   │
+│    transactions: [{tx_id, type, amount, xgb_score, ae_score,       │
+│                    risk_level, is_fraud_predicted}...],             │
+│    dataset_profile, feature_build }                                 │
+└────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 7. Les routes (endpoints) — explication complète
 
 ### `POST /api/predict` — Prédiction de fraude
 
-Upload d'un fichier CSV → détection de schéma → construction de features → prédiction.
+**Qui appelle ça ?** Le frontend quand l'utilisateur glisse un fichier CSV.
+
+**Comment ?** En `multipart/form-data` (comme un formulaire HTML avec un fichier attaché).
+
+**Ce qui se passe** : pipeline complet des 8 étapes décrites ci-dessus.
 
 **Requête** :
 ```bash
 curl -X POST http://localhost:8000/api/predict \
-  -F "file=@data/transactions.csv"
+  -F "file=@transactions.csv"
 ```
 
-**Réponse** :
+**Réponse** (exemple réel) :
 ```json
 {
   "n_transactions": 50,
@@ -224,17 +569,13 @@ curl -X POST http://localhost:8000/api/predict \
     "avg_confidence": 1.0,
     "use_xgb": true,
     "use_ae": true,
-    "use_isoforest": false,
-    "models_used": "XGBoost + Autoencoder",
-    "reason": "Schéma PaySim complet (9/7 colonnes requises, confiance moy. 100%) → XGBoost + Autoencoder",
+    "reason": "Schéma PaySim complet → XGBoost + Autoencoder",
     "warnings": []
   },
   "column_mapping": {
-    "amount": { "original_name": "amount", "confidence": 1 },
-    "...": "..."
+    "amount": {"original_name": "amount", "confidence": 1.0},
+    "step":   {"original_name": "step",   "confidence": 1.0}
   },
-  "mapping_warnings": [],
-  "feature_engineering": { "n_generated": 15, "..." : "..." },
   "transactions": [
     {
       "tx_id": 21,
@@ -244,57 +585,85 @@ curl -X POST http://localhost:8000/api/predict \
       "ae_score": 0.623424,
       "risk_level": "CRITIQUE",
       "is_fraud_predicted": true
-    },
-    {
-      "tx_id": 20,
-      "type": "TRANSFER",
-      "amount": 14257.00,
-      "xgb_score": 0.302858,
-      "ae_score": 0.376791,
-      "risk_level": "FAIBLE",
-      "is_fraud_predicted": false
     }
   ],
   "threshold": 0.3547,
-  "feature_build": { "n_features": 14, "..." : "..." },
-  "dataset_profile": { "n_rows": 50, "global_quality_score": 98.9, "..." : "..." }
+  "dataset_profile": {
+    "n_rows": 50,
+    "global_quality_score": 98.9
+  }
 }
 ```
 
-**Champs clés de chaque transaction** :
+**Champs clés** :
 
-| Champ | Description |
-|-------|-------------|
-| `tx_id` | Index de la ligne dans le CSV |
-| `xgb_score` | Score XGBoost (0–1) — seuil 0.355 → `is_fraud_predicted` |
-| `ae_score` | Score AutoEncoder normalisé (MSE / seuil) |
-| `risk_level` | `CRITIQUE` (xgb ≥ seuil) / `ELEVE` (xgb ≥ 0.5) / `FAIBLE` |
-| `is_fraud_predicted` | `true` si `xgb_score ≥ threshold` |
+| Champ | Type | Signification |
+|-------|------|---------------|
+| `tx_id` | int | Index de la ligne dans le CSV (0, 1, 2...) |
+| `xgb_score` | float [0-1] | Probabilité de fraude selon XGBoost. 0 = très légitime, 1 = très suspect |
+| `ae_score` | float [0-1] | Niveau d'anomalie selon l'AutoEncoder. 0 = normal, >1 = très anormal |
+| `risk_level` | string | "CRITIQUE" (xgb ≥ 0.355), "ELEVE" (xgb ≥ 0.5 seulement), "FAIBLE" |
+| `is_fraud_predicted` | bool | **La décision finale** : true si xgb_score ≥ seuil (0.355) |
 
-**Modes de prédiction sélectionnés automatiquement** :
+**Modes de prédiction** :
 
-| Mode | Condition | Modèles utilisés |
-|------|-----------|-----------------|
-| `paysim` | Toutes les colonnes PaySim détectées | XGBoost + AutoEncoder |
-| `ae_isoforest` | `amount` mappé + ≥3 colonnes numériques | AutoEncoder + IsolationForest (on-the-fly) |
-| `ae_only` | `amount` mappé + <3 colonnes numériques | AutoEncoder uniquement |
-| `isoforest` | Pas d'`amount` + ≥3 colonnes numériques | IsolationForest uniquement |
+| Mode | Condition déclenchante | Modèles |
+|------|------------------------|---------|
+| `paysim` | Toutes les colonnes PaySim reconnues | XGBoost + AutoEncoder |
+| `ae_isoforest` | `amount` reconnu + colonnes numériques présentes | AE + IsoForest on-the-fly |
+| `ae_only` | `amount` reconnu + pas assez de colonnes numériques | AutoEncoder seul |
+| `isoforest` | Pas d'`amount` + colonnes numériques présentes | IsoForest on-the-fly |
 
 **Codes d'erreur** :
-- `400` : fichier vide
-- `422` : CSV illisible ou colonnes insuffisantes (aucun modèle applicable)
-- `500` : erreur interne de traitement
+- `400` : fichier vide ou aucun résultat en cache
+- `422` : CSV illisible ou aucun modèle applicable
+- `500` : erreur interne pendant le traitement
 
 ---
 
 ### `GET /api/explain/{tx_id}` — Explication d'une transaction
 
-Doit être appelé **après** `/api/predict`. `tx_id` correspond au champ `tx_id` dans la réponse de predict.
+**Quand ?** Après `/api/predict`. L'utilisateur clique sur une transaction suspecte pour comprendre POURQUOI elle est signalée.
 
-**Requête** :
-```bash
-curl http://localhost:8000/api/explain/21
+**Paramètre** : `tx_id` = le `tx_id` dans la réponse de predict (ex: `/api/explain/21`)
+
+**Ce que fait le backend** :
+1. Retrouve la transaction dans `app.state.results_cache`
+2. Récupère le vecteur de features `tx_arr` (les 14 valeurs)
+3. Calcule **trois types d'explication** :
+
+**SHAP (SHapley Additive exPlanations)** pour XGBoost :
+```python
+# explainer.py
+explainer = shap.TreeExplainer(xgb_model)
+shap_values = explainer.shap_values(tx_arr.reshape(1, -1))
+# → {"balance_diff_orig": +0.42, "log_amount": +0.31, "type_CASH_OUT": +0.18, ...}
+# Interprétation : chaque valeur est la contribution de cette feature
+# à la prédiction finale. + = pousse vers "fraude", - = pousse vers "légitime"
 ```
+
+**Proxy AE** pour l'AutoEncoder :
+```python
+# explainer.py
+recon = ae.model(tx_tensor)                   # L'AE reconstruit la transaction
+errors = |tx_arr - recon|                     # Erreur par feature
+# → {"balance_diff_orig": 65.73, "log_amount": 5.87, ...}
+# Interprétation : les features avec la plus grande erreur sont celles
+# qui ont le plus contribué au score d'anomalie
+```
+
+> **Note technique** : On n'utilise pas SHAP KernelExplainer pour l'AE (beaucoup trop lent en production — plusieurs dizaines de secondes par transaction). Le Proxy AE est une approximation directe, rapide, et interprétable.
+
+**LIME (Local Interpretable Model-agnostic Explanations)** pour XGBoost :
+```python
+# explainer.py
+explainer = LimeTabularExplainer(training_data=X_arr, ...)
+exp = explainer.explain_instance(tx_arr, xgb.predict_proba)
+# → ["balance_diff_orig > 0: +0.382", "log_amount > 9.5: +0.221", ...]
+# Interprétation : règles locales qui expliquent CETTE transaction spécifique
+```
+
+4. Appelle le **LLM** pour une explication en langage naturel (si disponible)
 
 **Réponse** :
 ```json
@@ -306,25 +675,20 @@ curl http://localhost:8000/api/explain/21
   "feature_values": {
     "log_amount": 11.04,
     "balance_diff_orig": 62229.21,
-    "type_CASH_OUT": 1.0,
-    "...": "..."
+    "type_CASH_OUT": 1.0
   },
   "shap_values_xgb": {
     "balance_diff_orig": 0.42,
     "log_amount": 0.31,
-    "type_CASH_OUT": 0.18,
-    "...": "..."
+    "type_CASH_OUT": 0.18
   },
   "ae_feature_errors": {
     "balance_diff_orig": 65.73,
-    "log_amount": 5.87,
-    "type_PAYMENT": 1.66,
-    "...": "..."
+    "log_amount": 5.87
   },
   "ae_top_features": [
     {"feature": "balance_diff_orig", "error": 65.73},
-    {"feature": "log_amount",        "error": 5.87},
-    {"feature": "type_PAYMENT",      "error": 1.66}
+    {"feature": "log_amount", "error": 5.87}
   ],
   "lime_rules": [
     "balance_diff_orig > 0: +0.382",
@@ -332,37 +696,35 @@ curl http://localhost:8000/api/explain/21
   ],
   "llm": {
     "risk_level": "CRITIQUE",
-    "risk_score": 0.993882,
     "resume": "Retrait espèces avec vidange totale du compte source",
-    "raisons": ["Solde source réduit à zéro", "Montant élevé atypique"],
+    "raisons": ["Solde réduit à zéro", "Montant élevé atypique"],
     "actions_recommandees": ["Bloquer la transaction", "Contacter le titulaire"],
     "status": "ok",
     "_audit": {
       "hash": "04a1c8...",
-      "timestamp_utc": "2026-06-15T12:00:00+00:00",
+      "timestamp_utc": "2026-06-17T09:00:00+00:00",
       "hash_algo": "sha256"
     }
   }
 }
 ```
 
-**Note sur les champs d'explicabilité — deux modèles, deux méthodes distinctes** :
+**Tableau des méthodes d'explicabilité** :
 
-| Champ | Méthode | Modèle expliqué |
-|-------|---------|-----------------|
-| `shap_values_xgb` | SHAP TreeExplainer | XGBoost uniquement |
-| `ae_feature_errors` | Proxy `|x − AE(x)|` par feature | AutoEncoder uniquement |
-| `ae_top_features` | Top 3 features par erreur décroissante | AutoEncoder uniquement |
-| `lime_rules` | LIME LimeTabularExplainer | XGBoost |
-| `llm.top_features` | Proxy AE transmis au LLM | AutoEncoder |
-
-> **Important pour les auditeurs :** `shap_values_xgb` explique uniquement la composante XGBoost (modèle supervisé). Les erreurs AE (`ae_feature_errors`) expliquent la composante AutoEncoder (modèle non supervisé). Un score `xgb_score` élevé avec un `ae_score` faible signifie que XGBoost a détecté un pattern de fraude connu, mais que la transaction n'est pas anormale du point de vue de la reconstruction.
+| Champ | Méthode | Modèle expliqué | Vitesse |
+|-------|---------|-----------------|---------|
+| `shap_values_xgb` | SHAP TreeExplainer | XGBoost | ~10ms |
+| `ae_feature_errors` | Proxy \|x - AE(x)\| | AutoEncoder | ~5ms |
+| `lime_rules` | LIME LimeTabularExplainer | XGBoost | ~200ms |
+| `llm.*` | Appel API (Groq/Gemini) | Explication globale | ~2-5s |
 
 ---
 
 ### `POST /api/explain/batch` — Explication en lot
 
-Doit être appelé **après** `/api/predict`. LIME est désactivé en mode batch pour la performance.
+**Quand ?** Pour expliquer plusieurs transactions en une seule requête (sans faire 50 appels séparés).
+
+**LIME est désactivé** en mode batch (trop lent pour >1 transaction).
 
 **Requête** :
 ```bash
@@ -371,12 +733,12 @@ curl -X POST http://localhost:8000/api/explain/batch \
   -d '{"tx_ids": [21, 48, 41], "max_explain": 20}'
 ```
 
-**Corps de la requête** :
+**Corps** :
 
-| Champ | Type | Défaut | Description |
-|-------|------|--------|-------------|
-| `tx_ids` | `list[int]` | requis | Liste des `tx_id` à expliquer |
-| `max_explain` | `int` | `20` | Limite max (1–100). Les `tx_ids` au-delà sont ignorés |
+| Paramètre | Type | Défaut | Description |
+|-----------|------|--------|-------------|
+| `tx_ids` | `list[int]` | requis | Liste des identifiants à expliquer |
+| `max_explain` | `int` | 20 | Maximum de 100. Limite de sécurité pour éviter les timeouts |
 
 **Réponse** :
 ```json
@@ -384,32 +746,22 @@ curl -X POST http://localhost:8000/api/explain/batch \
   "n_requested": 3,
   "n_explained": 3,
   "n_errors": 0,
-  "explanations": [
-    {
-      "tx_id": 21,
-      "risk_level": "CRITIQUE",
-      "shap_values_xgb": { "balance_diff_orig": 0.42, "...": "..." },
-      "ae_feature_errors": { "balance_diff_orig": 65.73, "...": "..." },
-      "ae_top_features": [{"feature": "balance_diff_orig", "error": 65.73}],
-      "llm": { "risk_level": "CRITIQUE", "resume": "...", "status": "ok" }
-    }
-  ],
+  "explanations": [{"tx_id": 21, ...}, {"tx_id": 48, ...}],
   "errors": []
 }
 ```
 
-> Workflow recommandé pour 1 000 transactions : filtrer d'abord avec `/api/predict` (`is_fraud_predicted = true`), puis appeler `/api/explain/batch` sur les `tx_id` des transactions CRITIQUE/ELEVE uniquement.
+**Workflow recommandé** : filtrer avec `/api/predict` → extraire les `tx_id` des transactions `is_fraud_predicted = true` → appeler `/api/explain/batch` uniquement sur ceux-là.
 
 ---
 
-### `GET /api/models` — Métriques des modèles
+### `GET /api/models` — Métriques comparatives des modèles
 
-Liste les 7 modèles évalués avec leurs performances sur le jeu de test PaySim.
+**Quand ?** Le frontend charge le tableau de comparaison des modèles.
 
-**Requête** :
-```bash
-curl http://localhost:8000/api/models
-```
+**Ce que fait le backend** :
+- Lit `baseline_report.json` et `autoencoder_report.json` (déjà fusionnés en RAM)
+- Formate les métriques pour les 7 modèles évalués
 
 **Réponse** :
 ```json
@@ -418,7 +770,7 @@ curl http://localhost:8000/api/models
     {
       "name": "XGB_smote",
       "recall": 0.8462,
-      "precision": 0.825,
+      "precision": 0.8250,
       "f1": 0.8354,
       "pr_auc": 0.8677,
       "roc_auc": 0.9975,
@@ -429,25 +781,15 @@ curl http://localhost:8000/api/models
     },
     {
       "name": "AutoEncoder",
-      "recall": 0.359,
-      "precision": 0.6087,
+      "recall": 0.3590,
       "f1": 0.4516,
-      "pr_auc": 0.382,
       "roc_auc": 0.9358,
-      "train_time_s": 191.3,
       "optimal_threshold": 1.753,
       "is_best": false,
       "is_in_production": true
     },
     {
       "name": "RF_smote",
-      "recall": 0.7949,
-      "precision": 0.8158,
-      "f1": 0.8052,
-      "pr_auc": 0.8405,
-      "roc_auc": 0.994,
-      "train_time_s": 15.28,
-      "optimal_threshold": 0.6291,
       "is_best": false,
       "is_in_production": false
     }
@@ -455,25 +797,26 @@ curl http://localhost:8000/api/models
 }
 ```
 
-**Signification des deux flags booléens** :
+**Deux flags importants** :
 
-| Champ | Signification | Qui |
-|-------|---------------|-----|
-| `is_best` | Meilleur modèle standalone en termes de métriques (recall, F1, PR-AUC) | XGBoost uniquement |
-| `is_in_production` | Modèle actif dans l'ensemble de production | XGBoost + AutoEncoder |
+| Flag | Signification |
+|------|---------------|
+| `is_best: true` | Meilleur modèle standalone en métriques (XGBoost uniquement) |
+| `is_in_production: true` | Modèle actif dans le système (XGBoost + AutoEncoder) |
 
-> `is_best = false` pour l'AutoEncoder ne signifie pas qu'il est inutile — il est utilisé en production (`is_in_production = true`) comme détecteur d'anomalies complémentaire au XGBoost supervisé. Les deux modèles jouent des rôles différents.
+> L'AutoEncoder a `is_best: false` car ses métriques standalone (recall 0.36) sont inférieures à XGBoost (recall 0.85). Mais il est `is_in_production: true` car il apporte une **détection complémentaire** basée sur l'anomalie structurelle, indépendante des labels.
 
 ---
 
-### `POST /api/profile` — Profilage de dataset (sans prédiction)
+### `POST /api/profile` — Profilage d'un CSV (sans prédiction)
 
-Analyse la qualité du CSV sans lancer la prédiction.
+**Quand ?** L'utilisateur veut analyser la qualité d'un fichier sans lancer la détection.
+
+**Ce que fait le backend** : uniquement les étapes 1 et 2 du pipeline (lecture + profilage), sans construction de features ni prédiction.
 
 **Requête** :
 ```bash
-curl -X POST http://localhost:8000/api/profile \
-  -F "file=@data/transactions.csv"
+curl -X POST http://localhost:8000/api/profile -F "file=@transactions.csv"
 ```
 
 **Réponse** :
@@ -486,7 +829,6 @@ curl -X POST http://localhost:8000/api/profile \
   "categorical_cols": ["type"],
   "datetime_cols": [],
   "identifier_cols": ["nameOrig", "nameDest"],
-  "quasi_constant_cols": [],
   "high_missing_cols": [],
   "recommendations": ["Vérifier les valeurs manquantes dans 'newbalanceDest'"],
   "profiling_time_ms": 33.3
@@ -495,198 +837,424 @@ curl -X POST http://localhost:8000/api/profile \
 
 ---
 
-### `POST /api/report` — Génération de rapport PDF
+### `POST /api/report` — Rapport PDF
 
-Génère un rapport PDF à la charte PwC depuis les résultats de la dernière prédiction.
+**Quand ?** L'utilisateur clique sur "Télécharger le rapport PDF".
 
-```bash
-curl -X POST http://localhost:8000/api/report -o rapport_fraude.pdf
+**Ce que fait le backend** :
+1. Lit `app.state.results_cache` (ou le corps JSON envoyé)
+2. Appelle `generate_pwc_report()` dans `report_gen.py`
+3. Retourne le PDF en streaming (pas de fichier sauvegardé sur le serveur)
+
+**Réponse** : Fichier binaire PDF avec headers :
+```
+Content-Type: application/pdf
+Content-Disposition: attachment; filename="rapport_pwc_20260617_0900.pdf"
 ```
 
-**Contenu du PDF (8 sections)** :
-1. Page de couverture avec jauge de risque globale
-2. Résumé exécutif (4 KPI boxes : transactions, fraudes, taux, montant à risque)
-3. 3 graphiques matplotlib (donut répartition, barres niveau de risque, exposition financière)
+**Structure du PDF (8 sections)** :
+1. Page de couverture + jauge de risque globale
+2. Résumé exécutif (4 KPI : transactions, fraudes, taux, montant)
+3. 3 graphiques matplotlib (donut, barres, exposition)
 4. Tableau top-10 transactions suspectes
-5. Cartes détaillées transactions CRITIQUE (max 8) avec facteurs SHAP
+5. Cartes détaillées CRITIQUE (max 8) avec SHAP
 6. Recommandations pour auditeurs
 7. Glossaire (7 termes métier)
 8. Disclaimer légal
 
 ---
 
-### `POST /api/report/docx` — Génération de rapport Word
+### `POST /api/report/docx` — Rapport Word
 
-Génère un rapport Word depuis le template `exemple_rapport.docx`.
+**Quand ?** L'utilisateur télécharge le rapport en format Word éditable.
 
-```bash
-curl -X POST http://localhost:8000/api/report/docx -o rapport_fraude.docx
-```
+**Comment fonctionne le template** :
+- Le fichier `exemple_rapport.docx` contient des `{{placeholders}}`
+- `python-docx` parcourt tous les paragraphes et remplace les placeholders
+- Les graphiques matplotlib sont intégrés comme images PNG dans le document
 
-**Contenu du DOCX** :
-- Substitution des `{{placeholders}}` dans le template
-- 5 graphiques matplotlib intégrés (grille 2×2 + histogramme distribution des scores)
-- Tableau des top-10 transactions + cartes CRITIQUE (max 14)
-- Sections recommandations et glossaire dynamiques
-- Texte entièrement en français pour contexte audit PwC Tunisie
+**Placeholders remplacés** : `{{date}}`, `{{taux_de_fraudes}}`, `{{n_transactions}}`, `{{n_fraudes}}`, `{{montant_a_risque}}`, `{{analyse_text}}`, etc.
 
 ---
 
-### `GET /api/health` — Statut du serveur
+### `GET /api/health` — Vérification du statut
+
+**Quand ?** Le monitoring ou le frontend vérifie que le serveur est opérationnel.
 
 ```bash
 curl http://localhost:8000/api/health
-# → {"status": "ok", "models_loaded": true, "llm_available": true}
 ```
 
----
-
-## 6. Pipeline de prédiction
-
-Le pipeline complet lors d'un appel à `/api/predict` :
-
-```
-CSV Upload
-    │
-    ▼
-1. Lecture CSV (pandas)
-   → Validation : fichier non vide, parseable
-    │
-    ▼
-2. Profilage dataset (dataset_profiler.py)
-   → statistiques par colonne, score qualité global, types sémantiques
-   → identifie : numeric_cols, categorical_cols, identifier_cols, quasi_constant_cols
-    │
-    ▼
-3. Mapping sémantique des colonnes (column_mapper.py)
-   → 4 niveaux de confiance :
-       alias exact       (confiance 1.00)  — "amount" → "amount"
-       alias normalisé   (confiance 0.95)  — "montant" → "amount"
-       signal composé    (confiance 0.80)  — corrélation statistique
-       fuzzy             (confiance 0.60)  — SequenceMatcher
-   → normalisation des types (ex: "virement" → "TRANSFER")
-   → MappingResult.success = True si toutes les colonnes PaySim requises sont trouvées
-    │
-    ▼
-4. Détection de schéma (schema_detector.py)
-   → success=True                          → mode "paysim"       (XGB + AE)
-   → "amount" mappé + ≥3 cols numériques  → mode "ae_isoforest" (AE + IsoForest)
-   → "amount" mappé + <3 cols numériques  → mode "ae_only"       (AE seul)
-   → "amount" non mappé + ≥3 cols num.    → mode "isoforest"     (IsoForest seul)
-   → aucune colonne utilisable             → ValueError 422
-    │
-    ▼
-5. Construction des 14 features (feature_builder.py)
-   → step, hour, day, week, high_risk_hour
-   → balance_diff_orig, dest_zero_balance
-   → type_CASH_IN, type_CASH_OUT, type_DEBIT, type_PAYMENT, type_TRANSFER
-   → log_amount
-   → Scaling avec StandardScaler sur 6 colonnes (SCALE_COLS)
-   → Fallback : colonne manquante → 0.0 + warning dans build_report
-    │
-    ▼
-6. Feature engineering dérivé (feature_engineer.py)
-   → temporel    : eng_tx_day_of_week, eng_is_weekend, eng_is_business_hour
-   → balance     : eng_drain_pct_src, eng_amount_ratio_src, eng_balance_gap,
-                   eng_dest_gain_ratio, eng_drain_pct_dest
-   → comportemental : eng_orig_tx_count, eng_orig_unique_dests, eng_orig_avg_amount,
-                      eng_orig_total_amount, eng_dest_tx_count, eng_dest_avg_received,
-                      eng_orig_is_high_freq
-   [Ces 15 features enrichissent la réponse JSON mais ne sont pas utilisées
-    par XGBoost/AE — elles sont exposées pour le frontend et les rapports]
-    │
-    ▼
-7. Prédiction
-   Mode "paysim"  → predictor.predict_batch()
-                    XGBoost.predict_proba(X_arr)  → xgb_score (0–1)
-                    AE.predict_score(X_arr)        → ae_score  (MSE normalisé)
-                    Classification : CRITIQUE si xgb_score ≥ 0.355
-                                     ELEVE    si xgb_score ≥ 0.5
-                                     FAIBLE   sinon
-                    Tri par xgb_score décroissant
-
-   Mode générique → generic_predictor.predict_generic_batch()
-                    AE + IsoForest on-the-fly selon schema_result.use_ae/use_isoforest
-                    IsoForest : fitté transductivement sur le batch (contamination=5%)
-                    Classification : basée sur ae_score et/ou decision_function IsoForest
-    │
-    ▼
-8. Mise en cache (app.state.results_cache)
-   → {"X_arr": ..., "df": ..., "transactions": ...}
-   → Permet l'appel ultérieur à /api/explain/{tx_id}
-```
-
----
-
-## 7. Intégration LLM
-
-### Fournisseurs supportés
-
-| Provider | Modèle | Variable d'env | Limite gratuite |
-|----------|--------|---------------|-----------------|
-| **Groq** (actif) | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | 14 400 req/jour |
-| Gemini | `gemini-1.5-flash` | `GEMINI_API_KEY` | 1 500 req/jour |
-| HuggingFace | `Mistral-7B-Instruct-v0.2` | `HF_API_KEY` | Variable |
-
-### Changer de provider
-
-Modifier [config/llm_config.yaml](config/llm_config.yaml) :
-
-```yaml
-active_provider: gemini   # groq | gemini | huggingface
-```
-
-### Comportement du LLM
-
-- **Retry automatique** : 3 tentatives avec backoff exponentiel (tenacity)
-- **JSON repair** : corrige les réponses JSON malformées (`json_repair`)
-- **Fallback** : si LLM indisponible → explication basée sur les règles métier
-- **Timeout** : 30 secondes par appel, `temperature=0.1`, `max_tokens=400`
-- **Audit trail** : chaque réponse LLM inclut un hash SHA-256 + timestamp UTC
-
-### Format de sortie du LLM
-
+**Réponse** :
 ```json
 {
-  "risk_level": "CRITIQUE|ELEVE|FAIBLE",
-  "risk_score": 0.87,
-  "resume": "Résumé en une ligne",
-  "raisons": ["raison 1", "raison 2", "raison 3"],
-  "actions_recommandees": ["action 1", "action 2"],
   "status": "ok",
-  "_audit": {
-    "hash": "sha256_de_la_reponse",
-    "timestamp_utc": "2026-06-15T12:00:00+00:00",
-    "hash_algo": "sha256"
-  }
+  "models_loaded": true,
+  "llm_available": true
 }
 ```
 
 ---
 
-## 8. Génération de rapports
+## 8. Services internes — comment ils fonctionnent
 
-### Rapport PDF (`report_gen.py`)
+### `column_mapper.py` — Détection automatique des colonnes
 
-Utilise la bibliothèque **fpdf2**. Le PDF est retourné en streaming (`StreamingResponse`) — aucun fichier sauvegardé sur le serveur.
+**Problème résolu** : un client peut envoyer un CSV avec des colonnes nommées "montant", "Montant", "amt", "transaction_value" — toutes signifient "amount". Le mapper gère tous ces cas.
 
-- Palette PwC : Orange `#D04A02`, Dark `#293854`, Red `#C00000`, Green `#008246`
-- Graphiques matplotlib embarqués (donut risque, barres niveau, exposition par type)
-- Cartes de détail avec facteurs SHAP pour les transactions CRITIQUE (max 8)
-- Section recommandations + glossaire en français pour auditeurs non-techniques
+**Mécanisme** (affectation greedy) :
+1. Pour chaque feature canonique PaySim (9 au total), on calcule un score pour chaque colonne du CSV
+2. On trie toutes les paires (score, feature, colonne) par score décroissant
+3. On affecte en priorité les paires avec le plus grand score
+4. Une colonne ne peut être affectée qu'à une seule feature
 
-### Rapport Word (`report_gen_docx.py`)
+```python
+# Exemple de scoring pour la colonne "ancien_solde_compte_source"
+# → Niveau 3 (signaux composés) :
+#   contient "solde" (=balance), "ancien" (=old/before), "source" (=orig)
+#   → oldbalanceOrg, confiance 0.88
+```
 
-Utilise **python-docx** avec injection dans le template `exemple_rapport.docx`.
+**Normalisation des valeurs de `type`** : "virement" → "TRANSFER", "retrait" → "CASH_OUT", etc.
 
-- Placeholders : `{{date}}`, `{{taux_de_fraudes}}`, `{{analyse_text}}`, etc.
-- 5 graphiques matplotlib intégrés en grille 2×2 + histogramme (PNG embarqué dans DOCX)
-- Table de transactions dynamique + cartes CRITIQUE (max 14)
-- Traductions français des noms de features (`FEATURE_FR`) pour les auditeurs
+### `dataset_profiler.py` — Profilage sémantique
+
+Pour chaque colonne, le profiler détecte :
+- **Type sémantique** : numérique, catégoriel, datetime, identifiant, booléen, constante
+- **Qualité** : valeurs manquantes, quasi-constance (>95% même valeur), asymétrie extrême
+- **Stats numériques** : min, max, moyenne, écart-type, skewness, kurtosis
+
+**Score qualité** : commence à 100, des pénalités sont déduites :
+- Colonne quasi-constante : -5 points
+- >30% de valeurs manquantes : -10 points
+- Asymétrie extrême (|skewness| > 10) : -3 points
+
+### `feature_builder.py` — Construction adaptative des features
+
+**Dégradation gracieuse** : si une colonne est absente, la feature correspondante est mise à 0 avec un avertissement — jamais une erreur fatale.
+
+```python
+# Exemple : colonne "oldbalanceDest" absente
+if "oldbalanceDest" in df.columns:
+    result["dest_zero_balance"] = (df["oldbalanceDest"] == 0).astype(float)
+else:
+    result["dest_zero_balance"] = pd.Series(np.zeros(n))
+    warnings.append("Colonne 'oldbalanceDest' absente — dest_zero_balance=0")
+```
+
+**Rapport détaillé** : chaque feature retourne son statut ("ok", "adapted", "missing_fallback") et la stratégie utilisée.
+
+### `schema_detector.py` — Sélection du mode de prédiction
+
+**Logique de décision** :
+
+```
+mapping.success = True
+    → mode "paysim" (XGB + AE)
+
+mapping.success = False :
+    "amount" mappé + colonne numérique valide ?
+        OUI + ≥1 col num. → mode "ae_isoforest"
+        OUI + 0 col num.  → mode "ae_only"
+        NON + ≥1 col num. → mode "isoforest"
+    Aucune colonne utilisable ?
+        → mode dégradé (tout classé FAIBLE + avertissement)
+```
+
+**Avertissement transductif IsoForest** :
+```
+"IsolationForest transductif : ajusté sur ce batch uniquement
+(contamination=5%). Le modèle pré-entraîné PaySim n'est pas utilisé.
+Si le batch ne contient pas de fraude réelle, des faux positifs sont inévitables."
+```
+
+### `generic_predictor.py` — Mode générique
+
+**IsoForest on-the-fly** : contrairement au XGBoost/AE pré-entraînés, l'IsoForest en mode générique est ajusté directement sur le batch entrant. Pourquoi ? Le modèle `iso_forest.pkl` entraîné sur PaySim ne serait pas pertinent sur des données de structure inconnue.
+
+**Classification en mode combiné (ae_isoforest)** :
+```python
+ae_flag = ae_score >= ae_threshold        # AE dit "anormal"
+iso_flag = iso_prediction == -1           # IsoForest dit "anomalie"
+
+if ae_flag and iso_flag:  → "CRITIQUE"   # Les deux modèles sont d'accord
+if ae_flag or iso_flag:   → "ELEVE"      # Un seul modèle signale
+else:                     → "FAIBLE"     # Aucun modèle ne signale
+```
 
 ---
 
-## 9. Tests
+## 9. Intégration LLM
+
+### Providers supportés
+
+| Provider | Modèle | Variable d'env | Limite gratuite |
+|----------|--------|----------------|-----------------|
+| **Groq** (par défaut) | `llama-3.3-70b-versatile` | `GROQ_API_KEY` | 14 400 req/jour |
+| Gemini | `gemini-1.5-flash` | `GEMINI_API_KEY` | 1 500 req/jour |
+| HuggingFace | `Mistral-7B-Instruct-v0.2` | `HF_API_KEY` | Variable |
+
+### Changer de provider
+
+Dans `config/llm_config.yaml` :
+```yaml
+active_provider: groq   # groq | gemini | huggingface
+generation:
+  temperature: 0.1      # Basse pour des réponses cohérentes et déterministes
+  max_tokens: 400       # Réponse courte pour la performance
+  timeout: 30           # Secondes avant abandon
+```
+
+### Ce que fait le LLM
+
+Le LLM reçoit en entrée :
+- Les valeurs des features de la transaction
+- Les erreurs de reconstruction par feature (de l'AE)
+- Le score de risque XGBoost
+- Le seuil
+
+Il retourne en JSON :
+```json
+{
+  "risk_level": "CRITIQUE",
+  "risk_score": 0.994,
+  "resume": "Retrait espèces avec vidange totale du compte source",
+  "raisons": ["Solde source réduit à zéro", "Montant élevé atypique"],
+  "actions_recommandees": ["Bloquer la transaction", "Contacter le titulaire"],
+  "status": "ok",
+  "_audit": {
+    "hash": "sha256_de_la_réponse",
+    "timestamp_utc": "2026-06-17T09:00:00+00:00",
+    "hash_algo": "sha256"
+  }
+}
+```
+
+### Mécanismes de robustesse
+
+- **Retry automatique** : 3 tentatives avec backoff exponentiel (via `tenacity`)
+- **JSON repair** : corrige les JSONs malformés via `json_repair`
+- **Fallback** : si le LLM est indisponible → explication basée sur des règles métier (pas d'erreur pour l'utilisateur)
+- **Audit trail** : chaque réponse LLM porte un hash SHA-256 + timestamp UTC pour la traçabilité
+
+---
+
+## 10. Génération de rapports
+
+### PDF (`report_gen.py`)
+
+Utilise **fpdf2** (génération de PDF pur Python, sans LaTeX ni dépendances externes).
+
+**Palette PwC** :
+- Orange PwC : `#D04A02`
+- Bleu foncé : `#293854`
+- Rouge critique : `#C00000`
+- Vert légal : `#008246`
+
+**Graphiques** : générés avec matplotlib, convertis en PNG en mémoire (`io.BytesIO`), embarqués dans le PDF. Aucun fichier temporaire sur le disque.
+
+**Streaming** : le PDF est retourné via `StreamingResponse(iter([pdf_bytes]))` — zéro fichier sauvegardé sur le serveur.
+
+### Word (`report_gen_docx.py`)
+
+Utilise **python-docx** avec injection dans le template `exemple_rapport.docx`.
+
+**Substitution des placeholders** :
+```python
+for paragraph in doc.paragraphs:
+    for key, value in replacements.items():
+        if f"{{{{{key}}}}}" in paragraph.text:
+            for run in paragraph.runs:
+                run.text = run.text.replace(f"{{{{{key}}}}}", str(value))
+```
+
+**Traductions des features** (pour les auditeurs non-techniques) :
+```python
+FEATURE_FR = {
+    "log_amount":           "Montant (log)",
+    "balance_diff_orig":    "Différence de solde (compte source)",
+    "type_CASH_OUT":        "Type : Retrait espèces",
+    "high_risk_hour":       "Heure à risque élevé",
+    "dest_zero_balance":    "Compte destinataire vide",
+    ...
+}
+```
+
+---
+
+## 11. La documentation interactive Swagger
+
+FastAPI génère **automatiquement** une documentation interactive depuis le code Python.
+
+**Accès** (une fois le serveur lancé) :
+- **Swagger UI** : http://localhost:8000/docs
+- **ReDoc** : http://localhost:8000/redoc
+
+**Ce qu'on peut faire dans Swagger UI** :
+- Voir tous les endpoints avec leurs paramètres
+- Tester une requête directement depuis le navigateur (sans Postman ni curl)
+- Voir les schémas de réponse avec exemples
+
+**Comment FastAPI génère la doc** : depuis les annotations Python et les modèles Pydantic :
+
+```python
+class BatchExplainRequest(BaseModel):
+    tx_ids: list[int] = Field(..., description="Liste des tx_id à expliquer.")
+    max_explain: int  = Field(20, ge=1, le=100, description="Limite max.")
+```
+
+Cette classe Pydantic génère automatiquement dans Swagger :
+- Un formulaire JSON avec les champs `tx_ids` et `max_explain`
+- La validation : `max_explain` doit être entre 1 et 100
+- La description de chaque champ
+
+---
+
+## 12. Variables d'environnement et configuration
+
+### Fichier `.env` (à la racine du projet)
+
+```env
+# Fournisseur LLM (au moins un)
+GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+GEMINI_API_KEY=AIzaSyxxxxxxxxxxxxxxxxxxxxxx
+HF_API_KEY=hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+> Ce fichier ne doit **jamais** être commité sur Git (il est dans `.gitignore`).
+
+### `config/llm_config.yaml`
+
+```yaml
+active_provider: groq    # ← Changer ici pour basculer de provider
+
+providers:
+  groq:
+    model: llama-3.3-70b-versatile
+  gemini:
+    model: gemini-1.5-flash
+  huggingface:
+    model: mistralai/Mistral-7B-Instruct-v0.2
+
+generation:
+  temperature: 0.1
+  max_tokens: 400
+  timeout: 30
+```
+
+### `config/config.yaml`
+
+Configuration générale du projet (chemins, paramètres globaux).
+
+---
+
+## 13. Installation et déploiement pas à pas
+
+### Prérequis
+
+- Python 3.10 ou supérieur
+- pip (gestionnaire de paquets Python)
+- Environ 2 Go d'espace disque (PyTorch + modèles)
+
+### Étape 1 — Créer l'environnement virtuel
+
+```bash
+# Un environnement virtuel isole les dépendances du projet
+python -m venv .venv
+
+# Activer l'environnement (Windows PowerShell)
+.venv\Scripts\activate
+
+# Activer l'environnement (Linux/Mac)
+source .venv/bin/activate
+
+# Le prompt doit afficher (.venv) devant
+```
+
+### Étape 2 — Installer les dépendances
+
+```bash
+# Installer toutes les dépendances listées dans requirements.txt
+pip install -r requirements.txt
+
+# Installer le package src/ (ml_core) en mode éditable
+# Nécessaire pour que "from src.models.autoencoder import FraudAutoEncoder" fonctionne
+pip install -e .
+```
+
+**Si PyTorch pose problème** (CPU uniquement, version légère) :
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+**Si SHAP pose problème** :
+```bash
+pip install shap --no-build-isolation
+```
+
+### Étape 3 — Configurer les clés API
+
+```bash
+# Créer le fichier .env
+echo "GROQ_API_KEY=votre_clé_ici" > .env
+```
+
+### Étape 4 — Vérifier que les artefacts ML sont présents
+
+```bash
+# Modèles obligatoires
+ls outputs/models/xgb_smote.pkl
+ls outputs/models/autoencoder/autoencoder_weights.pt
+ls outputs/models/autoencoder/autoencoder_meta.pkl
+ls outputs/models/scaler.pkl
+ls outputs/models/features.json
+ls outputs/models/optimal_thresholds.json
+
+# Rapports de métriques
+ls outputs/reports/baseline_report.json
+ls outputs/reports/autoencoder_report.json
+
+# Template Word
+ls exemple_rapport.docx
+```
+
+### Étape 5 — Lancer le serveur
+
+**Mode développement** (avec rechargement automatique) :
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Mode production** (4 workers en parallèle) :
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+### Étape 6 — Vérifier que tout fonctionne
+
+```bash
+# Test de santé
+curl http://localhost:8000/api/health
+# → {"status": "ok", "models_loaded": true, "llm_available": true}
+
+# Documentation interactive
+# Ouvrir http://localhost:8000/docs dans le navigateur
+```
+
+### Performances estimées
+
+| Opération | Temps |
+|-----------|-------|
+| Démarrage du serveur (chargement des modèles) | 3–5 secondes |
+| `/api/predict` sur 1 000 transactions | 200–500 ms |
+| `/api/explain/{tx_id}` avec LLM | 2–5 secondes |
+| `/api/report` PDF | 1–2 secondes |
+| `/api/report/docx` Word | 2–4 secondes |
+| Mémoire RAM totale | ~500 MB |
+
+---
+
+## 14. Tests
 
 ### Lancer tous les tests
 
@@ -694,20 +1262,18 @@ Utilise **python-docx** avec injection dans le template `exemple_rapport.docx`.
 pytest tests/ -v
 ```
 
-### Lancer un fichier de tests spécifique
+### Tests spécifiques
 
 ```bash
-pytest tests/test_predict.py -v
-pytest tests/test_explain.py -v
-pytest tests/test_column_mapper.py -v
-pytest tests/test_profiler.py -v
-pytest tests/test_feature_engineer.py -v
-pytest tests/test_report.py -v
-pytest tests/test_models.py -v
-pytest tests/test_llm.py -v
+pytest tests/test_predict.py -v       # Pipeline de prédiction
+pytest tests/test_explain.py -v       # SHAP, AE Proxy, LIME, LLM
+pytest tests/test_column_mapper.py -v # Détection sémantique des colonnes
+pytest tests/test_profiler.py -v      # Profilage dataset
+pytest tests/test_models.py -v        # Métriques des modèles
+pytest tests/test_report.py -v        # Génération PDF
 ```
 
-### Avec couverture de code
+### Avec rapport de couverture
 
 ```bash
 pip install pytest-cov
@@ -715,240 +1281,258 @@ pytest tests/ --cov=app --cov-report=html
 # Rapport HTML dans htmlcov/index.html
 ```
 
-### Structure des tests
+### Ce que teste chaque fichier
 
 | Fichier | Ce qui est testé |
 |---------|-----------------|
-| `conftest.py` | Fixtures : `client` (TestClient), CSV PaySim synthétique, CSV invalide |
-| `test_predict.py` | `/api/predict` : mode paysim, modes génériques, CSV vide, colonnes invalides |
-| `test_profiler.py` | `DatasetProfiler` : stats, score qualité, types sémantiques, recommandations |
-| `test_feature_engineer.py` | `FeatureEngineer` : temporel, balance, comportemental (15 features) |
-| `test_column_mapper.py` | `ColumnMapper` : alias, fuzzy, normalisation, scoring confiance |
-| `test_explain.py` | `/api/explain/{tx_id}` : SHAP, AE proxy, LIME, LLM, tx_id invalide |
-| `test_models.py` | `/api/models` : liste 7 modèles, métriques, flags `is_best`/`is_in_production` |
-| `test_report.py` | `/api/report` : génération PDF, Content-Type, headers |
-| `test_preprocessing.py` | Utilitaires de preprocessing |
-| `test_llm.py` | Placeholder (à compléter) |
-| `test_utils.py` | Utilitaires (évaluateur, anomaly_utils) |
+| `conftest.py` | Fixtures partagées : client TestClient, CSV PaySim synthétique |
+| `test_predict.py` | Mode paysim, modes génériques, CSV vide, colonnes invalides |
+| `test_column_mapper.py` | Alias exacts, fuzzy, normalisation type, conflits de mapping |
+| `test_profiler.py` | Stats, score qualité, types sémantiques, recommandations |
+| `test_explain.py` | SHAP, AE proxy, LIME, LLM, tx_id invalide |
+| `test_models.py` | 7 modèles, métriques, flags is_best/is_in_production |
+| `test_report.py` | PDF : Content-Type, headers, taille non nulle |
+| `test_feature_engineer.py` | 15 features enrichies, valeurs limites |
 
-### Flow complet avec curl
+### Flux de test complet (curl)
 
 ```bash
-# 1. Prédire
+# 1. Prédire sur un CSV
 curl -X POST http://localhost:8000/api/predict \
-  -F "file=@test_paysim.csv" \
-  -o predict_result.json
+  -F "file=@test_paysim.csv" -o predict_result.json
 
-# 2. Expliquer la transaction la plus risquée
+# 2. Voir le résultat
+cat predict_result.json | python -m json.tool | head -50
+
+# 3. Expliquer la transaction la plus suspecte (tx_id 21 dans l'exemple)
 curl http://localhost:8000/api/explain/21
 
-# 3. Expliquer plusieurs transactions en lot
+# 4. Expliquer plusieurs en lot
 curl -X POST http://localhost:8000/api/explain/batch \
   -H "Content-Type: application/json" \
   -d '{"tx_ids": [21, 48, 41], "max_explain": 10}'
 
-# 4. Rapport PDF
+# 5. Télécharger le rapport PDF
 curl -X POST http://localhost:8000/api/report -o rapport.pdf
 
-# 5. Rapport Word
+# 6. Télécharger le rapport Word
 curl -X POST http://localhost:8000/api/report/docx -o rapport.docx
 ```
 
-### Générer un CSV de test PaySim minimal
-
-```python
-import pandas as pd
-import numpy as np
-
-df = pd.DataFrame({
-    'step': np.random.randint(1, 744, 100),
-    'type': np.random.choice(['TRANSFER', 'CASH_OUT', 'PAYMENT'], 100),
-    'amount': np.random.uniform(100, 500000, 100),
-    'nameOrig': [f'C{i}' for i in range(100)],
-    'oldbalanceOrg': np.random.uniform(0, 100000, 100),
-    'newbalanceOrig': np.random.uniform(0, 100000, 100),
-    'nameDest': [f'M{i}' for i in range(100)],
-    'oldbalanceDest': np.random.uniform(0, 100000, 100),
-    'newbalanceDest': np.random.uniform(0, 100000, 100),
-})
-df.to_csv('test_paysim.csv', index=False)
-```
-
 ---
 
-## 10. Variables d'environnement
+## 15. Architecture des services et flux de données
 
-| Variable | Requis | Description |
-|----------|--------|-------------|
-| `GROQ_API_KEY` | Si Groq actif | Clé API Groq |
-| `GEMINI_API_KEY` | Si Gemini actif | Clé API Google Gemini |
-| `HF_API_KEY` | Si HuggingFace actif | Token HuggingFace |
+### État global (app.state)
 
-Ces variables sont lues depuis `.env` via `python-dotenv`. Si aucune clé n'est disponible, le LLM est désactivé et une explication règle-métier est utilisée en fallback.
-
----
-
-## 11. Architecture des services
-
-### Chargement des modèles au démarrage
-
-Au lancement, `lifespan()` dans `app/main.py` appelle `load_all_models()` qui charge :
-
-1. `baseline_report.json` — métriques LR, RF, XGB, IsoForest
-2. `autoencoder_report.json` — métriques AutoEncoder (fichier séparé car entraîné dans NB05)
-3. Fusion en mémoire : l'entrée AutoEncoder est injectée dans `baseline_report["models"]` si absente
+FastAPI maintient un état global partagé entre toutes les requêtes via `app.state` :
 
 ```python
 app.state.models = {
-  "scaler":          StandardScaler (6 features — SCALE_COLS)
-  "features":        Liste des 14 noms de features
-  "thresholds":      {"XGB_smote": 0.355, "RF_smote": 0.629, "LR_balanced": 0.999, ...}
-                     [NB: AutoEncoder absent ici — son seuil vient de ae_threshold]
-  "xgb":             XGBClassifier            ← production
-  "ae":              FraudAutoEncoder (PyTorch) ← production
-  "ae_threshold":    1.753                     ← seuil MSE AutoEncoder
-  "lr_balanced":     LogisticRegression        ← évaluation uniquement
-  "lr_smote":        LogisticRegression        ← évaluation uniquement
-  "rf_balanced":     RandomForestClassifier    ← évaluation uniquement
-  "rf_smote":        RandomForestClassifier    ← évaluation uniquement
-  "iso_forest":      IsolationForest           ← mode générique (fallback)
-  "iso_scaler":      MinMaxScaler (scores AE)
-  "baseline_report": dict avec 7 entrées (LR×2, RF×2, XGB, IsoForest, AutoEncoder)
+    "scaler":          StandardScaler     # normalisation des features
+    "features":        list[str]          # ordre exact des 14 features
+    "thresholds":      {"XGB_smote": 0.355, "RF_smote": 0.629, ...}
+    "xgb":             XGBClassifier      # modèle de PRODUCTION
+    "ae":              FraudAutoEncoder   # modèle de PRODUCTION
+    "ae_threshold":    1.753             # seuil MSE de l'AE
+    "lr_balanced":     LogisticRegression # évaluation seulement
+    "lr_smote":        LogisticRegression # évaluation seulement
+    "rf_balanced":     RandomForestClassifier  # évaluation seulement
+    "rf_smote":        RandomForestClassifier  # évaluation seulement
+    "iso_forest":      IsolationForest    # mode générique fallback
+    "iso_scaler":      MinMaxScaler       # normalisation scores AE
+    "baseline_report": dict              # métriques des 7 modèles
 }
 
-app.state.llm_helper = LLMHelper (ou None si indisponible)
-app.state.results_cache = {}  ← Cache en mémoire des derniers résultats predict
+app.state.llm_helper = LLMHelper | None   # None si LLM indisponible
+
+app.state.results_cache = {              # Résultats du DERNIER /api/predict
+    "X_arr":         np.ndarray (N, 14)  # features prêtes pour l'explication
+    "df":            pd.DataFrame        # données enrichies
+    "transactions":  list[dict]          # résultats de prédiction
+}
 ```
 
 ### Flux de données entre endpoints
 
 ```
 POST /api/predict
-    └─> app.state.results_cache = {X_arr, df, transactions}
+    → calcule X_arr, df_enriched, transactions
+    → stocke dans app.state.results_cache
 
-GET /api/explain/{tx_id}      ← lit results_cache
-POST /api/explain/batch       ← lit results_cache
+GET  /api/explain/{tx_id}
+    → lit results_cache["X_arr"][position]
+    → appelle SHAP, AE Proxy, LIME, LLM
 
-POST /api/report              ← lit results_cache (ou body JSON)
-POST /api/report/docx         ← lit results_cache (ou body JSON)
+POST /api/explain/batch
+    → lit results_cache en boucle
+    → appelle SHAP, AE Proxy, LLM (pas LIME)
+
+POST /api/report
+    → lit results_cache OU le body JSON
+    → génère PDF en mémoire
+
+POST /api/report/docx
+    → lit results_cache OU le body JSON
+    → génère DOCX en mémoire
 ```
 
-> Le cache est en mémoire — il est écrasé à chaque nouveau `/api/predict`. En production multi-utilisateurs, utiliser Redis ou une base de données.
+> **Limitation connue** : le cache est en mémoire — il est **écrasé** à chaque nouveau `/api/predict`. En production multi-utilisateurs, il faudrait Redis ou une base de données. En l'état, l'application est mono-utilisateur (un seul jeu de résultats à la fois).
 
-### Patterns architecturaux notables
+### Patterns architecturaux
 
 | Pattern | Description |
 |---------|-------------|
-| **Singleton services** | `ColumnMapper`, `DatasetProfiler`, `FeatureEngineer`, `DynamicFeatureBuilder` — fonctions module-level |
-| **Dégradation gracieuse** | Colonne manquante → 0.0 + warning ; LLM indisponible → règles métier |
-| **IsoForest transductif** | Refitté par batch en mode générique (contamination=5%) — avertissement explicite dans `schema_detection.warnings` |
-| **Cache session** | `app.state.results_cache` permet le chainage predict → explain |
-| **Fusion de rapports JSON** | `autoencoder_report.json` injecté dans `baseline_report["models"]` au démarrage, évitant toute duplication dans les routes |
+| **Lifespan** | Les modèles ML sont chargés une fois au démarrage via `@asynccontextmanager lifespan()`, pas à chaque requête |
+| **Singleton services** | `ColumnMapper`, `DatasetProfiler`, `DynamicFeatureBuilder` — instances créées une seule fois au niveau module (`_mapper = ColumnMapper()`) |
+| **Dégradation gracieuse** | Colonne manquante → 0.0 + warning ; LLM hors ligne → règles métier ; AE impossible → IsoForest seul |
+| **Streaming responses** | Les PDF et DOCX sont streamés sans jamais écrire sur le disque du serveur |
+| **Fusion de rapports** | `autoencoder_report.json` est injecté dans `baseline_report["models"]` au démarrage — les routes `/api/models` voient un dict unifié |
+| **Cache de session** | `app.state.results_cache` permet le chaînage predict → explain sans recalcul des features |
 
-### CORS
+### CORS (Cross-Origin Resource Sharing)
 
-Configuré pour :
-- `http://localhost:5173` (frontend React/Vite)
-- `http://localhost:3000` (alternative)
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+**Pourquoi ?** Les navigateurs refusent par sécurité les requêtes entre deux origines différentes (frontend sur port 3000 → backend sur port 8000). Le middleware CORS dit explicitement "c'est autorisé".
 
 ### Authentification
 
-**Aucune authentification n'est implémentée** — toutes les routes sont publiques. Pour une mise en production, ajouter un middleware JWT ou une validation de clé API.
+**Aucune authentification n'est implémentée** — toutes les routes sont publiques. Pour une mise en production réelle, il faudrait ajouter :
+- Un middleware JWT (JSON Web Tokens)
+- Ou une validation de clé API dans les headers
 
 ---
 
-## 12. Notes de déploiement
+## 16. Détail des artefacts ML produits par les notebooks
 
-### Dépendances critiques
+### `features.json` — La liste canonique des features
 
-```bash
-# Si PyTorch non installé (AutoEncoder)
-pip install torch --index-url https://download.pytorch.org/whl/cpu
-
-# Si SHAP pose problème
-pip install shap --no-build-isolation
-
-# Pour les rapports Word
-pip install python-docx
-
-# Pour la réparation de JSON LLM
-pip install json-repair tenacity
+```json
+{
+  "all_features": ["step", "hour", "day", "week", "high_risk_hour",
+                   "is_transfer_or_cashout", "balance_diff_orig",
+                   "dest_zero_balance", "type_CASH_IN", "type_CASH_OUT",
+                   "type_DEBIT", "type_PAYMENT", "type_TRANSFER", "log_amount"],
+  "scale_cols": ["step", "hour", "day", "week", "log_amount", "balance_diff_orig"],
+  "binary_cols": ["high_risk_hour", "is_transfer_or_cashout", "dest_zero_balance"],
+  "type_cols": ["type_CASH_IN", "type_CASH_OUT", "type_DEBIT", "type_PAYMENT", "type_TRANSFER"],
+  "n_features": 14,
+  "high_risk_hours": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 23],
+  "split_ratios": {"train": 0.7, "val": 0.15, "test": 0.15},
+  "imbalance_ratio": 772
+}
 ```
 
-### Vérifier que les artefacts sont présents
+**`imbalance_ratio: 772`** : il y a 772 transactions légitimes pour 1 fraude dans les données d'entraînement — justifie l'utilisation de SMOTE pour XGBoost et l'entraînement non supervisé pour l'AE.
 
-```bash
-# Modèles de production (obligatoires)
-ls outputs/models/xgb_smote.pkl
-ls outputs/models/autoencoder/autoencoder_weights.pt
-ls outputs/models/scaler.pkl
-ls outputs/models/features.json
+### `optimal_thresholds.json`
 
-# Rapports de métriques (requis par /api/models)
-ls outputs/reports/baseline_report.json
-ls outputs/reports/autoencoder_report.json
-
-# Template Word (requis par /api/report/docx)
-ls exemple_rapport.docx
+```json
+{
+  "thresholds": {
+    "XGB_smote":    0.355,
+    "RF_smote":     0.629,
+    "RF_balanced":  0.602,
+    "LR_balanced":  0.999,
+    "LR_smote":     0.991,
+    "IsoForest":    -0.01
+  }
+}
 ```
 
-### Performances estimées
+Ces seuils ont été calculés sur le **validation set** (jamais sur le test set) pour maximiser le F1-score. C'est un point important pour un expert : l'utilisation correcte des trois splits (train/val/test).
 
-| Opération | Temps |
-|-----------|-------|
-| Démarrage serveur | ~3–5 s (chargement modèles) |
-| `/api/predict` (1 000 transactions) | ~200–500 ms (sans LLM) |
-| `/api/explain/{tx_id}` | ~2–5 s (avec appel LLM) |
-| `/api/report` PDF | ~1–2 s |
-| `/api/report/docx` | ~2–4 s |
-| Mémoire totale | ~500 MB |
-
----
-
-## 13. Modifications récentes du backend
-
-### Correction : AutoEncoder affichait des métriques à 0 dans `/api/models`
-
-**Problème** : `baseline_report.json` (généré par NB03) ne contenait pas d'entrée "AutoEncoder" car ce modèle a été entraîné séparément dans NB05 et ses métriques sauvegardées dans `autoencoder_report.json`. La route `/api/models` cherchait "AutoEncoder" dans `baseline_report["models"]`, ne trouvait rien, et retournait `recall: 0, f1: 0, ...`.
-
-**Correction dans `app/services/predictor.py`** :
+### `autoencoder_meta.pkl` — Métadonnées complètes
 
 ```python
-# Charge les deux fichiers de métriques
-with open(reports_dir / "baseline_report.json") as f:
-    baseline_report = json.load(f)
-with open(reports_dir / "autoencoder_report.json") as f:
-    ae_report = json.load(f)
+{
+    "params": {
+        "encoder_dims": [10, 7],
+        "bottleneck_dim": 4,
+        "decoder_dims": [7, 10],
+        "dropout_rate": 0.2,
+        "use_batch_norm": True,
+        "l2_reg": 1e-5,
+        "epochs": 100,
+        "patience": 10,
+        "learning_rate": 1e-3,
+    },
+    "threshold": 1.753,
+    "train_time": 191.3,        # secondes
+    "n_features": 14,
+    "train_mse_stats": {
+        "mean": 0.312,
+        "p95": 1.753,            # ← c'est le seuil initial
+        "p99": 3.218,
+    },
+    "weights_sha256": "abc123...",  # intégrité du fichier .pt
+    "training_seed": 42,
+}
+```
 
-# Injecte l'entrée AutoEncoder si absente
+---
+
+## 17. Modifications récentes et corrections
+
+### Correction — AutoEncoder affichait des métriques à 0 dans `/api/models`
+
+**Problème** : `baseline_report.json` (généré par NB03) ne contenait pas d'entrée "AutoEncoder" car ce modèle a été entraîné dans NB05 séparément. La route `/api/models` cherchait "AutoEncoder" dans `baseline_report["models"]`, ne le trouvait pas, et retournait des métriques nulles.
+
+**Correction** dans `app/services/predictor.py` — fusion au chargement :
+```python
 ae_names = {m.get("name") for m in baseline_report.get("models", [])}
 if "AutoEncoder" not in ae_names:
     baseline_report["models"].append({
         "name": "AutoEncoder",
         "optimal_threshold": ae_report["threshold"]["optimal"],
-        "train_time_s": ae_report["training"]["train_time_s"],
-        "test_metrics": ae_report["test_metrics"],
+        "train_time_s":      ae_report["training"]["train_time_s"],
+        "test_metrics":      ae_report["test_metrics"],
     })
 ```
 
-### Ajout : champ `is_in_production` dans `/api/models`
+### Ajout — champ `is_in_production` dans `/api/models`
 
-**Motivation** : distinguer "meilleur modèle standalone" (`is_best`) de "modèle utilisé en production" (`is_in_production`). L'AutoEncoder a des métriques standalone inférieures au XGBoost mais est bien utilisé dans l'ensemble de production.
-
-**Correction dans `app/routes/models.py`** :
+**Motivation** : distinguer "meilleur modèle en métriques" de "modèle utilisé en production". L'AutoEncoder est moins performant standalone mais essentiel dans l'ensemble.
 
 ```python
+# app/routes/models.py
 BEST_MODEL = "XGB_smote"
 PRODUCTION_MODELS = {"XGB_smote", "AutoEncoder"}
 
-# Dans chaque entrée de la réponse :
-"is_best": name == BEST_MODEL,            # XGBoost uniquement
-"is_in_production": name in PRODUCTION_MODELS,  # XGBoost + AutoEncoder
+"is_best":          name == BEST_MODEL,
+"is_in_production": name in PRODUCTION_MODELS,
 ```
 
-**Résultat** :
-```json
-{ "name": "XGB_smote",   "is_best": true,  "is_in_production": true  }
-{ "name": "AutoEncoder", "is_best": false, "is_in_production": true  }
-{ "name": "RF_smote",    "is_best": false, "is_in_production": false }
-```
+---
+
+## 18. Questions fréquentes d'un expert technique
+
+**Q : Pourquoi le seuil XGBoost est 0.355 et pas 0.5 (valeur par défaut) ?**
+R : Le seuil par défaut de 0.5 est optimisé pour l'accuracy, pas pour le recall. Dans la détection de fraude, un faux négatif (fraude non détectée) est beaucoup plus coûteux qu'un faux positif (transaction légitime bloquée). Le seuil 0.355 maximise le F1-score sur le validation set, ce qui donne un meilleur compromis recall/précision.
+
+**Q : Pourquoi SMOTE pour XGBoost et entraînement non supervisé pour l'AE ?**
+R : Le ratio fraude/légitime est de 1/772. XGBoost étant supervisé, il a besoin d'exemples de fraudes. SMOTE génère des exemples synthétiques de fraudes (oversampling). L'AutoEncoder étant non supervisé, il n'a pas besoin de labels — il apprend uniquement sur les transactions légitimes et détecte les fraudes par leur "étrangeté".
+
+**Q : Comment le backend évite-t-il le data snooping (contamination du test set) ?**
+R : Les seuils optimaux sont calculés sur le validation set dans les notebooks. Le test set n'est utilisé qu'une seule fois pour l'évaluation finale. Le backend charge des seuils déjà calculés — il ne fait aucune optimisation.
+
+**Q : Que se passe-t-il si PyTorch n'est pas disponible ?**
+R : L'import PyTorch est lazily evaluated (dans `load_all_models`, pas à l'import du module). Si PyTorch manque, le serveur démarre mais le chargement de l'AutoEncoder échoue et lève une erreur claire au démarrage.
+
+**Q : Le cache mémoire est-il thread-safe ?**
+R : `app.state.results_cache` est un dict Python simple. En mode `--workers 1` (développement), il n'y a aucun risque. En mode multi-workers (`--workers 4`), chaque worker a son propre processus Python avec son propre cache — le frontend doit toujours appeler predict et explain sur le même worker. Pour un déploiement production multi-utilisateurs, Redis est la solution.
+
+**Q : L'AE est-il ré-entraîné à chaque prédiction ?**
+R : Non. L'AutoEncoder est chargé une fois au démarrage depuis `autoencoder_weights.pt` et utilisé en inférence uniquement (mode `eval()`, `torch.no_grad()`). Seul l'IsoForest en mode générique est fitté on-the-fly sur chaque batch.
+
+**Q : Quelle est la sécurité du système LLM ?**
+R : Les clés API sont dans `.env`, jamais dans le code. Chaque réponse LLM est hashée (SHA-256 + timestamp UTC) pour garantir l'intégrité et la traçabilité dans un contexte d'audit. Les appels ont un timeout de 30 secondes et 3 tentatives avec backoff exponentiel.

@@ -58,7 +58,7 @@ BUSINESS_HOUR_START = 9
 BUSINESS_HOUR_END = 18   # exclusive → [9, 18[
 HIGH_FREQ_PERCENTILE = 95
 
-# Colonnes canoniques PaySim attendues dans le df mappé
+# Colonnes canoniques attendues dans le df mappé
 _TEMPORAL_COLS = {"step"}
 _BALANCE_SRC_COLS = {"oldbalanceOrg", "newbalanceOrig"}
 _BALANCE_DST_COLS = {"oldbalanceDest", "newbalanceDest"}
@@ -240,7 +240,7 @@ class FeatureEngineer:
         Retourne (col_name, mode, hour_series, day_of_week_series) ou None.
         mode = "datetime" | "numeric_step" | "generic_numeric"
         """
-        # Priorité 1 : colonne `step` (PaySim canonique)
+        # Priorité 1 : colonne `step` (canonique)
         if "step" in df.columns:
             col = df["step"]
             if pd.api.types.is_datetime64_any_dtype(col):

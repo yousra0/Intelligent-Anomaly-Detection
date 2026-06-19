@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { datasetStore } from "@/lib/store/datasetStore";
-import { auditLogStore } from "@/lib/store/auditLogStore";
-import { missionStore } from "@/lib/store/missionStore";
+import fs from "fs";
+import path from "path";
+import { datasetRepository } from "@/lib/db/repositories/datasetRepository";
+import { auditLogRepository } from "@/lib/db/repositories/auditLogRepository";
+import { missionRepository } from "@/lib/db/repositories/missionRepository";
 import type { DatasetCategory, UserRole } from "@/types";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -11,7 +13,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "change-me-in-production-at-least-32-chars!!"
 );
 
-async function getCallerFromCookie(): Promise<{ id: string; name: string; role: UserRole } | null> {
+async function getCaller() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("pwc_token")?.value;
@@ -28,7 +30,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return NextResponse.json(datasetStore.getByMission(id));
+  const datasets = await datasetRepository.getByMission(id);
+  return NextResponse.json(datasets);
 }
 
 export async function POST(
@@ -42,24 +45,43 @@ export async function POST(
 
   if (!file) return NextResponse.json({ error: "Fichier manquant." }, { status: 400 });
 
-  const dataset = datasetStore.add({
-    id: uuidv4(),
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
+  const datasetId = uuidv4();
+
+  // Persist file to disk so it can be re-used for future analyses
+  let storagePath: string | undefined;
+  try {
+    const uploadDir = path.join(process.cwd(), "uploads", id, datasetId);
+    fs.mkdirSync(uploadDir, { recursive: true });
+    const filePath = path.join(uploadDir, file.name);
+    const bytes = await file.arrayBuffer();
+    fs.writeFileSync(filePath, Buffer.from(bytes));
+    storagePath = filePath;
+  } catch {
+    // Non-blocking — metadata still saved even if disk write fails
+  }
+
+  const dataset = await datasetRepository.add({
+    id: datasetId,
     mission_id: id,
+    uploaded_by_id: caller.id,
     name: file.name,
+    original_name: file.name,
     category: category || "transactions",
     file_size: file.size,
     file_type: file.type || "text/csv",
     status: "uploaded",
-    uploaded_at: new Date().toISOString(),
+    storage_path: storagePath,
   });
 
-  const caller = await getCallerFromCookie();
-  const mission = missionStore.getById(id);
-  auditLogStore.add({
+  const mission = await missionRepository.getById(id);
+  await auditLogRepository.add({
     action: "dataset.upload",
-    user_id: caller?.id ?? "u1",
-    user_name: caller?.name ?? "Inconnu",
-    user_role: caller?.role ?? "auditor",
+    user_id: caller.id,
+    user_name: caller.name,
+    user_role: caller.role,
     mission_id: id,
     mission_name: mission?.name,
     details: `Dataset uploadé : "${file.name}" (${(file.size / 1024).toFixed(0)} KB) — Catégorie : ${category}`,

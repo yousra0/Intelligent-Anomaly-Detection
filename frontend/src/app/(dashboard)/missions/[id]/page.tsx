@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { missionService } from "@/lib/api/missionService";
+import { userService } from "@/lib/api/userService";
 import { DatasetSection } from "@/components/datasets/DatasetSection";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +17,7 @@ import {
   ClipboardList,
   BarChart3,
   Info,
+  Users,
 } from "lucide-react";
 import {
   formatDate,
@@ -32,6 +34,19 @@ export default function MissionDetailPage() {
     queryKey: ["mission", id],
     queryFn: () => missionService.getById(id),
   });
+
+  const { data: allAuditors = [] } = useQuery({
+    queryKey: ["users", "auditors"],
+    queryFn: userService.getAuditors,
+  });
+
+  const assignedAuditors = (() => {
+    if (!mission) return [];
+    const ids = mission.assigned_auditors?.length
+      ? mission.assigned_auditors
+      : mission.assigned_to ? [mission.assigned_to] : [];
+    return ids.map((uid) => allAuditors.find((a) => a.id === uid)).filter(Boolean);
+  })();
 
   const handleAnalyze = (dataset: Dataset) => {
     router.push(`/missions/${id}/analysis?datasetId=${dataset.id}&datasetName=${encodeURIComponent(dataset.name)}`);
@@ -117,6 +132,30 @@ export default function MissionDetailPage() {
               </p>
             </div>
           </div>
+
+          {/* Assigned auditors */}
+          {assignedAuditors.length > 0 && (
+            <>
+              <Separator className="my-4" />
+              <div>
+                <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Users className="h-3.5 w-3.5" />
+                  Auditeur{assignedAuditors.length > 1 ? "s" : ""} assigné{assignedAuditors.length > 1 ? "s" : ""}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {assignedAuditors.map((a) => a && (
+                    <span
+                      key={a.id}
+                      className="rounded-full bg-pwc-orange/10 px-3 py-1 text-sm font-medium text-pwc-orange"
+                    >
+                      {a.name}
+                      {a.position && <span className="ml-1 text-xs text-muted-foreground">— {a.position}</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           {mission.description && (
             <>

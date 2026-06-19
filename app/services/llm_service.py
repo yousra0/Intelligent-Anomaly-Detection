@@ -12,9 +12,7 @@ import yaml
 
 def get_llm_helper(project_root: Path):
     """Instancie LLMHelper depuis la config YAML du projet."""
-    import sys
-    sys.path.insert(0, str(project_root))
-    from src.llm_integration.llm_helper import LLMHelper
+    from ml_core.llm_integration.llm_helper import LLMHelper
 
     config_path = project_root / "config" / "llm_config.yaml"
     with open(config_path, encoding="utf-8") as f:

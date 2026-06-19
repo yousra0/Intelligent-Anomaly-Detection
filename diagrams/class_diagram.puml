@@ -1,0 +1,443 @@
+@startuml class_diagram
+!theme plain
+skinparam classAttributeIconSize 0
+skinparam classFontSize 12
+skinparam classHeaderBackgroundColor #293854
+skinparam classHeaderFontColor #FFFFFF
+skinparam classBorderColor #293854
+skinparam arrowColor #D04A02
+skinparam backgroundColor #FAFAFA
+skinparam packageStyle rectangle
+skinparam packageBorderColor #293854
+skinparam packageFontColor #293854
+
+title Diagramme de Classes — Plateforme d'Audit PwC
+
+' ─────────────────── COUCHE DONNÉES ───────────────────
+package "Couche Données (Stores)" {
+
+  class User {
+    + id : str
+    + email : str
+    + name : str
+    + role : UserRole
+  }
+
+  enum UserRole {
+    auditor
+    manager
+    partner
+    admin
+  }
+
+  class Mission {
+    + id : str
+    + name : str
+    + company_name : str
+    + mission_type : MissionType
+    + description : str
+    + start_date : date
+    + end_date : date
+    + status : MissionStatus
+    + assigned_to : str
+    + created_by : str
+    + created_at : datetime
+    + updated_at : datetime
+  }
+
+  class Dataset {
+    + id : str
+    + mission_id : str
+    + name : str
+    + category : DatasetCategory
+    + file_size : int
+    + file_type : str
+    + status : DatasetStatus
+    + row_count : int
+    + uploaded_at : datetime
+    + analyzed_at : datetime
+  }
+
+  class AnalysisRun {
+    + id : str
+    + mission_id : str
+    + dataset_id : str
+    + mission_name : str
+    + dataset_name : str
+    + started_at : datetime
+    + completed_at : datetime
+    + result : PredictResponse
+  }
+
+  class AuditLog {
+    + id : str
+    + action : str
+    + user_id : str
+    + user_name : str
+    + user_role : str
+    + mission_id : str
+    + mission_name : str
+    + details : str
+    + timestamp : datetime
+  }
+
+  User "1" --> "0..*" Mission : crée / gère
+  Mission "1" --> "0..*" Dataset : contient
+  Dataset "1" --> "0..*" AnalysisRun : génère
+  User "1" --> "0..*" AuditLog : trace
+  User --> UserRole
+}
+
+' ─────────────────── PIPELINE ML BACKEND ───────────────────
+package "Pipeline ML (Backend FastAPI)" {
+
+  class DatasetProfile {
+    + n_rows : int
+    + n_cols : int
+    + n_missing_total : int
+    + pct_missing_total : float
+    + global_quality_score : float
+    + profiling_time_ms : float
+    + numeric_cols : List[str]
+    + categorical_cols : List[str]
+    + datetime_cols : List[str]
+    + identifier_cols : List[str]
+    + high_missing_cols : List[str]
+    + quasi_constant_cols : List[str]
+    + columns : Dict[str, ColumnProfile]
+    + recommendations : List[str]
+  }
+
+  class ColumnProfile {
+    + name : str
+    + dtype_raw : str
+    + semantic_type : str
+    + cardinality_type : str
+    + missing_count : int
+    + missing_pct : float
+    + n_unique : int
+    + dominant_value : Any
+    + min : float
+    + max : float
+    + mean : float
+    + median : float
+    + std : float
+    + skewness : float
+    + kurtosis : float
+    + quality_flags : List[str]
+    + quality_score : float
+    + top_values : Dict
+    + to_dict() : dict
+  }
+
+  class MappingResult {
+    + df : DataFrame
+    + mapping : Dict[str, str]
+    + confidence : Dict[str, float]
+    + warnings : List[str]
+    + unmapped : List[str]
+    + success : bool
+  }
+
+  class SchemaDetectionResult {
+    + mode : str
+    + n_mapped : int
+    + n_paysim_required : int
+    + avg_confidence : float
+    + use_xgb : bool
+    + use_ae : bool
+    + use_isoforest : bool
+    + numeric_cols_for_iso : List[str]
+    + reason : str
+    + warnings : List[str]
+    + {property} model_label : str
+  }
+
+  class FeatureBuildReport {
+    + n_features : int
+    + features_ok : int
+    + features_adapted : int
+    + features_fallback : int
+    + details : Dict[str, FeatureDetail]
+    + adaptations : List[str]
+    + warnings : List[str]
+  }
+
+  class EngineeringReport {
+    + temporal_features : List[str]
+    + balance_features : List[str]
+    + behavioral_features : List[str]
+    + n_generated : int
+    + specs : Dict
+    + warnings : List[str]
+    + skipped : List[str]
+  }
+
+  class TransactionResult {
+    + tx_id : int
+    + type : str
+    + amount : float
+    + xgb_score : float
+    + ae_score : float
+    + risk_level : RiskLevel
+    + is_fraud_predicted : bool
+  }
+
+  enum RiskLevel {
+    CRITIQUE
+    ELEVE
+    FAIBLE
+  }
+
+  class PredictResponse {
+    + n_transactions : int
+    + n_fraud : int
+    + fraud_rate_pct : float
+    + amount_at_risk : float
+    + model_used : str
+    + prediction_mode : str
+    + schema_detection : SchemaDetectionResult
+    + column_mapping : Dict
+    + mapping_warnings : List[str]
+    + feature_engineering : EngineeringReport
+    + feature_build : FeatureBuildReport
+    + transactions : List[TransactionResult]
+    + dataset_profile : DatasetProfile
+  }
+
+  class ExplainResponse {
+    + tx_id : int
+    + risk_level : RiskLevel
+    + feature_values : Dict[str, float]
+    + shap_values_xgb : Dict[str, float]
+    + ae_feature_errors : Dict[str, float]
+    + ae_top_features : List[str]
+    + lime_rules : List[str]
+    + llm : Dict
+    + xgb_score : float
+    + ae_score : float
+    + model_used : str
+  }
+
+  TransactionResult --> RiskLevel
+  ExplainResponse --> RiskLevel
+  PredictResponse "1" --> "0..*" TransactionResult : contient
+  PredictResponse --> SchemaDetectionResult
+  PredictResponse --> DatasetProfile
+  PredictResponse --> EngineeringReport
+  PredictResponse --> FeatureBuildReport
+  DatasetProfile "1" --> "0..*" ColumnProfile : décrit
+}
+
+' ─────────────────── MODÈLES ML ───────────────────
+package "Modèles ML (src/models)" {
+
+  class FraudAutoEncoder {
+    - model : AutoEncoderModel
+    - threshold : float
+    - scaler : StandardScaler
+    + fit(X_train : ndarray) : void
+    + predict_score(X : ndarray) : ndarray
+    + evaluate(X_test, y_test) : Dict
+    + save(path : str) : void
+    + load(path : str) : FraudAutoEncoder
+  }
+
+  class AutoEncoderModel {
+    - encoder : Sequential [14→10→7→4]
+    - decoder : Sequential [4→7→10→14]
+    - dropout_rate : float = 0.2
+    + forward(x : Tensor) : Tensor
+  }
+
+  class FraudXGBoost {
+    - model : XGBClassifier
+    - threshold : float
+    + predict_proba(X : ndarray) : ndarray
+    + get_feature_importance() : Dict
+  }
+
+  class FraudIsoForest {
+    - model : IsolationForest
+    + fit(X : ndarray) : void
+    + predict_score(X : ndarray) : ndarray
+  }
+
+  FraudAutoEncoder --> AutoEncoderModel : utilise
+}
+
+' ─────────────────── SERVICES BACKEND ───────────────────
+package "Services Backend (app/services)" {
+
+  class DatasetProfiler {
+    + {static} QUASI_CONSTANT_THRESHOLD : float = 0.95
+    + {static} HIGH_MISSING_THRESHOLD : float = 0.30
+    + {static} IDENTIFIER_THRESHOLD : float = 0.90
+    + profile_dataset(df : DataFrame) : DatasetProfile
+  }
+
+  class ColumnMapper {
+    + {static} SEMANTIC_FIELDS : Dict[str, SemanticField]
+    + map_columns(df : DataFrame) : MappingResult
+    - _exact_match(col, field) : float
+    - _fuzzy_match(col, field) : float
+    - _compound_match(col, field) : float
+  }
+
+  class SchemaDetector {
+    + {static} PAYSIM_REQUIRED_COLS : List[str]
+    + detect_schema_mode(mapping, df) : SchemaDetectionResult
+  }
+
+  class DynamicFeatureBuilder {
+    + {static} FEATURE_COLS : List[str]
+    + {static} HIGH_RISK_HOURS : List[int]
+    + build_features_dynamic(df, profile, scaler) : (ndarray, FeatureBuildReport)
+    - _build_step(df) : Series
+    - _build_hour(df) : Series
+    - _build_log_amount(df) : Series
+    - _build_type_dummies(df) : DataFrame
+  }
+
+  class FeatureEngineer {
+    + engineer_features(df, profile, mapping) : (DataFrame, EngineeringReport)
+    - _temporal_features(df) : List[str]
+    - _balance_features(df) : List[str]
+    - _behavioral_features(df) : List[str]
+  }
+
+  class Predictor {
+    + {static} load_all_models(root) : Dict
+    + predict_batch(X, models, df) : List[TransactionResult]
+    + get_risk_level(score, threshold) : RiskLevel
+    - preprocess(df, models) : ndarray
+  }
+
+  class GenericPredictor {
+    + predict_generic_batch(df, X, models, schema, df_mapped) : List[TransactionResult]
+    - _fit_isoforest(df, cols) : (ndarray, ndarray)
+    - _risk_ae_only(score, threshold) : (RiskLevel, bool)
+    - _risk_iso_only(score, pred) : (RiskLevel, bool)
+    - _risk_ae_iso_combined(ae, iso, threshold) : (RiskLevel, bool)
+  }
+
+  class Explainer {
+    + compute_shap(X, xgb, features) : Dict[str, float]
+    + compute_ae_feature_errors(X, ae, features) : Dict[str, float]
+    + compute_lime(X, X_train, xgb, features) : List[str]
+  }
+
+  class LLMHelper {
+    - provider : str
+    - model : str
+    - temperature : float = 0.1
+    - max_tokens : int = 400
+    - timeout : int = 30
+    + explain_fraud(transaction, errors, score, threshold) : Dict
+    + generate_summary(stats) : str
+  }
+
+  class ReportGenerator {
+    + {static} PWC_ORANGE : tuple = (208,74,2)
+    + {static} PWC_DARK : tuple = (41,56,84)
+    + generate_pdf(result : PredictResponse) : bytes
+    + generate_docx(result : PredictResponse) : bytes
+    - _page_cover() : void
+    - _page_executive_summary() : void
+    - _page_charts() : void
+    - _page_top10() : void
+    - _page_recommendations() : void
+  }
+
+  DatasetProfiler ..> DatasetProfile : produit
+  ColumnMapper ..> MappingResult : produit
+  SchemaDetector ..> SchemaDetectionResult : produit
+  DynamicFeatureBuilder ..> FeatureBuildReport : produit
+  FeatureEngineer ..> EngineeringReport : produit
+  Predictor ..> TransactionResult : produit
+  Predictor --> FraudXGBoost : utilise
+  Predictor --> FraudAutoEncoder : utilise
+  GenericPredictor --> FraudAutoEncoder : utilise
+  GenericPredictor --> FraudIsoForest : utilise
+  Explainer --> FraudAutoEncoder : utilise
+  Explainer --> FraudXGBoost : utilise
+  ReportGenerator ..> PredictResponse : consomme
+}
+
+' ─────────────────── CONTRÔLEURS API ───────────────────
+package "API FastAPI (app/routes)" {
+
+  class PredictRouter {
+    + POST /api/predict(file : UploadFile) : PredictResponse
+  }
+
+  class ExplainRouter {
+    + GET /api/explain/{tx_id} : ExplainResponse
+    + POST /api/explain/batch : List[ExplainResponse]
+  }
+
+  class ReportRouter {
+    + POST /api/report : PDF bytes
+    + POST /api/report/docx : DOCX bytes
+  }
+
+  class ModelsRouter {
+    + GET /api/models : List[ModelMetrics]
+  }
+
+  class ProfileRouter {
+    + POST /api/profile : DatasetProfile
+  }
+
+  PredictRouter --> DatasetProfiler : appelle
+  PredictRouter --> ColumnMapper : appelle
+  PredictRouter --> SchemaDetector : appelle
+  PredictRouter --> DynamicFeatureBuilder : appelle
+  PredictRouter --> FeatureEngineer : appelle
+  PredictRouter --> Predictor : appelle
+  PredictRouter --> GenericPredictor : appelle
+  ExplainRouter --> Explainer : appelle
+  ExplainRouter --> LLMHelper : appelle
+  ReportRouter --> ReportGenerator : appelle
+}
+
+' ─────────────────── FRONTEND ───────────────────
+package "Frontend Next.js" {
+
+  class AuthContext {
+    + user : User
+    + isAuthenticated : bool
+    + isLoading : bool
+    + login(credentials) : void
+    + logout() : void
+  }
+
+  class MissionService {
+    + getAll() : Mission[]
+    + getById(id) : Mission
+    + create(payload) : Mission
+    + update(id, payload) : Mission
+    + delete(id) : void
+  }
+
+  class AnalysisService {
+    + predict(file, onProgress) : PredictResponse
+    + explainOne(tx_id) : ExplainResponse
+    + explainBatch(tx_ids) : Dict
+    + health() : Dict
+  }
+
+  class ReportService {
+    + generatePDF(result) : Blob
+    + generateDOCX(result) : Blob
+  }
+
+  AuthContext --> User
+  AnalysisService ..> PredictResponse : retourne
+  AnalysisService ..> ExplainResponse : retourne
+  AnalysisService --> PredictRouter : HTTP POST
+  ExplainRouter ..> ExplainResponse : retourne
+  ReportService --> ReportRouter : HTTP POST
+}
+
+@enduml

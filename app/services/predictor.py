@@ -27,7 +27,7 @@ FEATURE_COLS = [
 
 SCALE_COLS = ["step", "hour", "day", "week", "log_amount", "balance_diff_orig"]
 
-PAYSIM_REQUIRED_COLS = [
+REQUIRED_COLS = [
     "step", "type", "amount", "oldbalanceOrg", "newbalanceOrig",
     "oldbalanceDest", "newbalanceDest",
 ]
@@ -45,6 +45,18 @@ def _load_model(path: Path):
 
 
 def build_features(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Construit les 14 features attendues par XGBoost et l'Autoencoder.
+
+    Transformations appliquées :
+      - step → heure (% 24), jour (// 24), semaine (// 168)
+      - high_risk_hour : 1 si l'heure est entre 0h-9h ou 23h (horaires suspects)
+      - is_transfer_or_cashout : 1 si le type est TRANSFER ou CASH_OUT (opérations à risque)
+      - balance_diff_orig : solde avant - solde après (détecte les vidages de compte)
+      - dest_zero_balance : 1 si le compte destinataire était à zéro avant la transaction
+      - log_amount : log1p(montant) pour réduire l'effet d'échelle des très gros montants
+      - type_* : encodage one-hot des 5 types de transactions (CASH_IN, CASH_OUT, DEBIT, PAYMENT, TRANSFER)
+    """
     df = df.copy()
     df["hour"] = df["step"] % 24
     df["day"] = df["step"] // 24
@@ -68,10 +80,7 @@ def load_all_models(project_root: Path) -> dict:
     models_dir = project_root / "outputs" / "models"
     reports_dir = project_root / "outputs" / "reports"
 
-    # Import ici pour ne pas ralentir le module si PyTorch n'est pas dispo
-    import sys
-    sys.path.insert(0, str(project_root))
-    from src.models.autoencoder import FraudAutoEncoder
+    from ml_core.models.autoencoder import FraudAutoEncoder
 
     with open(models_dir / "features.json") as f:
         features_meta = json.load(f)
@@ -120,7 +129,7 @@ def load_all_models(project_root: Path) -> dict:
 
 def preprocess(df: pd.DataFrame, models: dict) -> np.ndarray:
     """
-    Applique le preprocessing complet sur un DataFrame PaySim brut.
+    Applique le preprocessing complet sur un DataFrame de transactions brut.
     Retourne np.ndarray shape (N, 14) dtype float32.
     """
     df_feat = build_features(df)
@@ -137,6 +146,15 @@ def preprocess(df: pd.DataFrame, models: dict) -> np.ndarray:
 # ---------------------------------------------------------------------------
 
 def get_risk_level(xgb_score: float, threshold: float) -> str:
+    """
+    Convertit le score XGBoost en niveau de risque lisible.
+
+    Logique :
+      - score ≥ threshold (défaut 0.355) → CRITIQUE  (fraude probable selon le seuil optimisé)
+      - score ≥ 0.5                       → ELEVE     (seuil naturel de classification binaire)
+      - sinon                             → FAIBLE
+    Le threshold est calibré sur le jeu de test pour maximiser le F1-score.
+    """
     if xgb_score >= threshold:
         return "CRITIQUE"
     if xgb_score >= 0.5:

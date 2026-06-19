@@ -1,0 +1,203 @@
+@startuml usecase_diagram
+!theme plain
+skinparam actorStyle awesome
+skinparam usecaseBorderColor #293854
+skinparam usecaseBackgroundColor #EEF2F7
+skinparam usecaseFontSize 11
+skinparam actorBorderColor #D04A02
+skinparam actorFontColor #293854
+skinparam actorFontSize 12
+skinparam arrowColor #293854
+skinparam packageStyle rectangle
+skinparam packageBorderColor #D04A02
+skinparam packageFontColor #D04A02
+skinparam noteBackgroundColor #FFF8F5
+skinparam noteBorderColor #D04A02
+skinparam backgroundColor #FAFAFA
+
+title Diagramme de Cas d'Utilisation — Plateforme d'Audit PwC
+
+' ═══════════════════════════════
+'         ACTEURS
+' ═══════════════════════════════
+actor "Auditeur" as AUD #D04A02
+actor "Manager\nd'Audit" as MGR #293854
+actor "Partner" as PAR #293854
+actor "Administrateur" as ADM #D04A02
+
+actor "Moteur ML\n(FastAPI)" as ML #888888
+actor "Service LLM\n(Groq/Gemini)" as LLM #888888
+
+' ═══════════════════════════════
+'   SYSTÈME PRINCIPAL
+' ═══════════════════════════════
+rectangle "Plateforme d'Audit PwC" {
+
+  ' ──────────────────────────────
+  '   Authentification
+  ' ──────────────────────────────
+  package "Authentification" {
+    usecase "Se connecter\n(@pwc.com)" as UC_LOGIN
+    usecase "Se déconnecter" as UC_LOGOUT
+    usecase "Restaurer la session\n(JWT localStorage)" as UC_RESTORE
+  }
+
+  ' ──────────────────────────────
+  '   Gestion des missions
+  ' ──────────────────────────────
+  package "Gestion des Missions" {
+    usecase "Créer une mission\nd'audit" as UC_CREATE_MISSION
+    usecase "Voir ses missions\nassignées" as UC_VIEW_MY_MISSIONS
+    usecase "Voir toutes\nles missions" as UC_VIEW_ALL_MISSIONS
+    usecase "Modifier une\nmission" as UC_EDIT_MISSION
+    usecase "Archiver\nune mission" as UC_ARCHIVE_MISSION
+    usecase "Assigner un\nauditeur" as UC_ASSIGN
+  }
+
+  ' ──────────────────────────────
+  '   Analyse de données
+  ' ──────────────────────────────
+  package "Analyse de Données" {
+    usecase "Téléverser un\ndataset CSV" as UC_UPLOAD
+    usecase "Lancer une\nanalyse de fraude" as UC_ANALYZE
+    usecase "Détecter le\nschéma automatiquement" as UC_SCHEMA
+    usecase "Cartographier\nles colonnes" as UC_MAPPING
+    usecase "Construire les\ncaractéristiques ML" as UC_FEATURES
+    usecase "Prédire les\ntransactions suspectes" as UC_PREDICT
+    usecase "Consulter le\nprofilage du dataset" as UC_PROFILE
+  }
+
+  ' ──────────────────────────────
+  '   Résultats & Explications
+  ' ──────────────────────────────
+  package "Résultats & Explications" {
+    usecase "Visualiser le tableau\nde bord des résultats" as UC_DASHBOARD
+    usecase "Consulter la liste\ndes anomalies" as UC_ANOMALIES
+    usecase "Obtenir l'explication\nd'une transaction (SHAP)" as UC_EXPLAIN_ONE
+    usecase "Expliquer en lot\n(batch, max 100)" as UC_EXPLAIN_BATCH
+    usecase "Obtenir la narrative\nLLM de la fraude" as UC_LLM_EXPLAIN
+    usecase "Valider / invalider\nune anomalie" as UC_VALIDATE
+  }
+
+  ' ──────────────────────────────
+  '   Rapports
+  ' ──────────────────────────────
+  package "Génération de Rapports" {
+    usecase "Générer le rapport\nPDF (thème PwC)" as UC_PDF
+    usecase "Générer le rapport\nWord (DOCX)" as UC_DOCX
+    usecase "Télécharger\nle rapport" as UC_DOWNLOAD
+    usecase "Consulter l'historique\ndes rapports" as UC_REPORT_HIST
+  }
+
+  ' ──────────────────────────────
+  '   Tableau de bord global
+  ' ──────────────────────────────
+  package "Tableau de Bord Global" {
+    usecase "Voir les KPIs\nglobaux" as UC_KPIS
+    usecase "Consulter le\njournal d'audit" as UC_AUDIT_LOG
+    usecase "Voir l'historique\ndes analyses" as UC_HISTORY
+  }
+
+  ' ──────────────────────────────
+  '   Administration
+  ' ──────────────────────────────
+  package "Administration" {
+    usecase "Gérer les\nutilisateurs (CRUD)" as UC_USERS
+    usecase "Attribuer les\nrôles" as UC_ROLES
+    usecase "Voir tous les\njournaux d'audit" as UC_FULL_LOGS
+    usecase "Surveiller la\nsanté du système" as UC_HEALTH
+  }
+}
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — AUDITEUR
+' ═══════════════════════════════
+AUD --> UC_LOGIN
+AUD --> UC_LOGOUT
+AUD --> UC_VIEW_MY_MISSIONS
+AUD --> UC_UPLOAD
+AUD --> UC_ANALYZE
+AUD --> UC_DASHBOARD
+AUD --> UC_ANOMALIES
+AUD --> UC_EXPLAIN_ONE
+AUD --> UC_EXPLAIN_BATCH
+AUD --> UC_PDF
+AUD --> UC_DOCX
+AUD --> UC_DOWNLOAD
+AUD --> UC_HISTORY
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — MANAGER
+' ═══════════════════════════════
+MGR --> UC_LOGIN
+MGR --> UC_LOGOUT
+MGR --> UC_CREATE_MISSION
+MGR --> UC_VIEW_ALL_MISSIONS
+MGR --> UC_EDIT_MISSION
+MGR --> UC_ARCHIVE_MISSION
+MGR --> UC_ASSIGN
+MGR --> UC_UPLOAD
+MGR --> UC_ANALYZE
+MGR --> UC_DASHBOARD
+MGR --> UC_VALIDATE
+MGR --> UC_AUDIT_LOG
+MGR --> UC_KPIS
+MGR --> UC_REPORT_HIST
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — PARTNER
+' ═══════════════════════════════
+PAR --> UC_LOGIN
+PAR --> UC_LOGOUT
+PAR --> UC_VIEW_ALL_MISSIONS
+PAR --> UC_KPIS
+PAR --> UC_DASHBOARD
+PAR --> UC_HISTORY
+PAR --> UC_REPORT_HIST
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — ADMIN
+' ═══════════════════════════════
+ADM --> UC_LOGIN
+ADM --> UC_LOGOUT
+ADM --> UC_USERS
+ADM --> UC_ROLES
+ADM --> UC_FULL_LOGS
+ADM --> UC_HEALTH
+ADM --> UC_VIEW_ALL_MISSIONS
+ADM --> UC_CREATE_MISSION
+ADM --> UC_KPIS
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — MOTEUR ML
+' ═══════════════════════════════
+ML --> UC_SCHEMA
+ML --> UC_MAPPING
+ML --> UC_FEATURES
+ML --> UC_PREDICT
+ML --> UC_PROFILE
+
+' ═══════════════════════════════
+'   ASSOCIATIONS — SERVICE LLM
+' ═══════════════════════════════
+LLM --> UC_LLM_EXPLAIN
+
+' ═══════════════════════════════
+'   RELATIONS <<include>> / <<extend>>
+' ═══════════════════════════════
+UC_ANALYZE ..> UC_SCHEMA   : <<include>>
+UC_ANALYZE ..> UC_MAPPING  : <<include>>
+UC_ANALYZE ..> UC_FEATURES : <<include>>
+UC_ANALYZE ..> UC_PREDICT  : <<include>>
+
+UC_EXPLAIN_ONE ..> UC_LLM_EXPLAIN : <<include>>
+UC_EXPLAIN_BATCH ..> UC_LLM_EXPLAIN : <<extend>>
+
+UC_PDF ..> UC_DOWNLOAD : <<extend>>
+UC_DOCX ..> UC_DOWNLOAD : <<extend>>
+
+UC_UPLOAD ..> UC_PROFILE : <<include>>
+
+UC_LOGIN ..> UC_RESTORE : <<include>>
+
+@enduml

@@ -5,7 +5,7 @@ Moteur de prédiction en mode générique (schéma inconnu).
 
 Modes supportés
 ───────────────
- "ae_isoforest"  AE pré-entraîné (features PaySim avec fallbacks)
+ "ae_isoforest"  AE pré-entraîné (features avec fallbacks)
                  + IsolationForest fitté on-the-fly sur les colonnes numériques brutes
                  Risque : les deux flaggent → CRITIQUE ; un seul → ELEVE
 
@@ -18,7 +18,7 @@ Modes supportés
 Notes
 ─────
  • L'IsoForest est toujours fitté sur le batch courant (transductif).
-   Le modèle iso_forest.pkl entraîné sur PaySim n'est PAS utilisé ici.
+   Le modèle iso_forest.pkl pré-entraîné n'est PAS utilisé ici.
  • La contamination présumée est fixée à 5 % (ajustable via CONTAMINATION).
  • Le tri de la liste résultante : anomalies en tête, puis par score composé.
 """
@@ -88,6 +88,11 @@ def _fit_isoforest(
 
 
 def _risk_ae_only(ae_score: float, ae_threshold: float) -> tuple[str, bool]:
+    """
+    Niveau de risque basé uniquement sur l'Autoencoder.
+    Score ≥ 2× seuil → CRITIQUE (erreur de reconstruction très élevée).
+    Score ≥ seuil     → ELEVE   (déviation détectée par l'AE).
+    """
     if ae_score >= ae_threshold * 2.0:
         return "CRITIQUE", True
     if ae_score >= ae_threshold:
@@ -96,6 +101,11 @@ def _risk_ae_only(ae_score: float, ae_threshold: float) -> tuple[str, bool]:
 
 
 def _risk_iso_only(iso_score: float, iso_pred: int) -> tuple[str, bool]:
+    """
+    Niveau de risque basé uniquement sur l'IsolationForest.
+    decision_function < -0.15 → CRITIQUE (outlier fort).
+    prediction == -1           → ELEVE   (outlier marginal).
+    """
     if iso_score < _ISO_CRITICAL:
         return "CRITIQUE", True
     if iso_pred == -1:
@@ -109,6 +119,11 @@ def _risk_combined(
     iso_score: float,
     iso_pred: int,
 ) -> tuple[str, bool]:
+    """
+    Niveau de risque combiné AE + IsolationForest.
+    Les deux flaggent → CRITIQUE (consensus = forte confiance).
+    Un seul flagge    → ELEVE   (signal isolé = incertitude).
+    """
     ae_flag = ae_score >= ae_threshold
     iso_flag = iso_pred == -1
     if ae_flag and iso_flag:
@@ -159,14 +174,14 @@ def predict_generic_batch(
     iso_scores: Optional[np.ndarray] = None
     iso_predictions: Optional[np.ndarray] = None
     if schema_result.use_isoforest and schema_result.numeric_cols_for_iso:
-        # Avertissement explicite : le modèle iso_forest.pkl pré-entraîné PaySim n'est PAS
+        # Avertissement explicite : le modèle iso_forest.pkl pré-entraîné n'est PAS
         # utilisé ici. L'IsoForest est ajusté sur ce batch uniquement (mode transductif,
         # contamination=5%). Si le batch ne contient aucune fraude réelle, les 5% de
         # transactions les plus atypiques seront quand même flaggées → faux positifs garantis.
         schema_result.warnings.append(
             "IsolationForest transductif : ajusté sur ce batch uniquement "
             f"(contamination={CONTAMINATION*100:.0f}%). "
-            "Le modèle pré-entraîné PaySim n'est pas utilisé. "
+            "Le modèle pré-entraîné n'est pas utilisé. "
             "Si le batch ne contient pas de fraude réelle, des faux positifs sont inévitables."
         )
         try:

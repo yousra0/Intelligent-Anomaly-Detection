@@ -1,0 +1,88 @@
+version: "3.9"
+
+# ── Services ──────────────────────────────────────────────────────────────────
+#
+# Stack :
+#   postgres  — PostgreSQL 16 (single source of truth)
+#   fastapi   — FastAPI ML backend (runs Alembic migrations on startup)
+#   frontend  — Next.js 15 frontend
+#
+# First-time setup:
+#   1. cp .env.docker .env          # fill in secrets
+#   2. docker compose up --build    # builds and starts all services
+#   3. docker compose exec frontend npx prisma db seed   # seed demo users
+#
+# Volumes:
+#   pg_data   — PostgreSQL data (survives container restarts)
+#   uploads   — CSV files uploaded by users (mounted into fastapi)
+
+services:
+
+  # ── PostgreSQL ───────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB:       ${POSTGRES_DB:-pwcaudit}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── FastAPI ML Backend ───────────────────────────────────────────────────────
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pwcaudit}
+      JWT_SECRET:   ${JWT_SECRET:-change-me-in-production-at-least-32-chars!!}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      UPLOADS_DIR:  /app/uploads
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - uploads:/app/uploads
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ── Next.js Frontend ─────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fastapi:
+        condition: service_healthy
+    environment:
+      DATABASE_URL:        postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-pwcaudit}
+      JWT_SECRET:          ${JWT_SECRET:-change-me-in-production-at-least-32-chars!!}
+      JWT_EXPIRY:          ${JWT_EXPIRY:-28800}
+      FASTAPI_URL:         http://fastapi:8000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    ports:
+      - "3000:3000"
+
+# ── Volumes ───────────────────────────────────────────────────────────────────
+volumes:
+  pg_data:
+  uploads:

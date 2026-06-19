@@ -4,7 +4,7 @@ app/services/column_mapper.py
 Moteur de détection sémantique des colonnes CSV.
 
 Principe :
-  Pour chaque champ canonique PaySim (step, type, amount, ...), le moteur
+  Pour chaque champ canonique transactionnel (step, type, amount, ...), le moteur
   calcule un score de confiance pour chaque colonne du CSV entrant, en
   combinant quatre niveaux de matching :
     1. Alias exact    (confidence 1.00) – liste exhaustive de noms connus
@@ -53,7 +53,7 @@ class SemanticField:
     forbidden_tokens: list[str] = field(default_factory=list)
 
 
-# Valeurs acceptées pour la colonne `type` (PaySim)
+# Valeurs acceptées pour la colonne `type`
 TYPE_VALUE_MAP: dict[str, str] = {
     "transfer"      : "TRANSFER",
     "virement"      : "TRANSFER",
@@ -353,7 +353,7 @@ def _score_column(col: str, field: SemanticField) -> float:
 
 class ColumnMapper:
     """
-    Détecte et normalise sémantiquement les colonnes d'un DataFrame PaySim.
+    Détecte et normalise sémantiquement les colonnes d'un DataFrame de transactions.
 
     Usage :
         mapper = ColumnMapper()
@@ -367,7 +367,7 @@ class ColumnMapper:
 
     def map(self, df: pd.DataFrame) -> MappingResult:
         """
-        Mappe les colonnes du DataFrame vers les noms canoniques PaySim.
+        Mappe les colonnes du DataFrame vers les noms canoniques transactionnels.
         Aucune colonne n'est affectée à deux champs distincts.
         """
         columns = list(df.columns)
@@ -477,7 +477,7 @@ class ColumnMapper:
 
 def _normalize_type_values(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Normalise les valeurs de la colonne `type` vers les constantes PaySim
+    Normalise les valeurs de la colonne `type` vers les constantes transactionnelles
     (TRANSFER, CASH_OUT, CASH_IN, DEBIT, PAYMENT).
     Les valeurs inconnues sont laissées en majuscules.
     """
@@ -520,5 +520,5 @@ _mapper = ColumnMapper()
 
 
 def map_columns(df: pd.DataFrame) -> MappingResult:
-    """Point d'entrée public : mappe les colonnes d'un DataFrame PaySim."""
+    """Point d'entrée public : mappe les colonnes d'un DataFrame de transactions."""
     return _mapper.map(df)

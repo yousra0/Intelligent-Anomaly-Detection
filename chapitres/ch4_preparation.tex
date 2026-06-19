@@ -1,0 +1,233 @@
+% =====================================================
+% CHAPITRE 4 : PRÉPARATION DES DONNÉES (CRISP-DM Phase 3)
+% =====================================================
+\chapter{Préparation des données}
+
+% ---------------------------------------------------
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+% ---------------------------------------------------
+
+Préparer les données, c'est poser les fondations sur lesquelles reposent tous les modèles
+à venir. J'ai rapidement réalisé que les décisions prises ici auraient des répercussions
+directes sur la validité de l'évaluation finale. L'enjeu central n'était pas seulement
+technique, mais méthodologique : comment extraire des signaux pertinents des variables
+brutes, tout en évitant d'introduire sans le vouloir de l'information du futur dans
+l'apprentissage --- ce que l'on appelle le \textit{data leakage} ? Ce chapitre détaille
+chaque choix effectué et les justifications empiriques qui les sous-tendent, telles
+qu'elles ressortent des notebooks \texttt{01\_data\_understanding.ipynb} et
+\texttt{02\_data\_preparation.ipynb}.
+
+% ---------------------------------------------------
+\section{Pipeline de préparation}
+% ---------------------------------------------------
+
+\subsection{Vue d'ensemble}
+
+Le pipeline de préparation suit les étapes définies dans le module
+\texttt{src/preprocessing/preprocessing.py}. Ces étapes sont appliquées dans un ordre
+strict pour garantir l'étanchéité des partitions et l'absence de fuite d'information :
+
+\begin{enumerate}
+  \item Suppression des variables à risque de leakage
+  \item Ingénierie de variables (\textit{feature engineering})
+  \item Division stratifiée du corpus (train / validation / test)
+  \item Normalisation (StandardScaler, \textit{fit} sur train uniquement)
+  \item Gestion du déséquilibre (pondération et SMOTE)
+\end{enumerate}
+
+\subsection{Suppression des variables à risque de leakage}
+
+La première décision consiste à identifier et éliminer les variables qui introduiraient de
+l'information future ou qui révèleraient directement la classe cible. Ces suppressions sont
+motivées empiriquement par l'analyse exploratoire :
+
+\begin{table}[H]
+\centering
+\caption{Variables supprimées et justifications}
+\label{tab:cols_dropped}
+\begin{tabular}{p{4cm}p{8cm}}
+\toprule
+\textbf{Variable} & \textbf{Justification} \\
+\midrule
+\texttt{nameOrig}, \texttt{nameDest}
+  & Identifiants nominaux non encodables sans risque de sur-apprentissage \\[0.2cm]
+\texttt{oldbalanceOrg}, \texttt{newbalanceOrig}
+  & Corrélation directe avec la fraude ; fuite d'information avérée \\[0.2cm]
+\texttt{oldbalanceDest}, \texttt{newbalanceDest}
+  & Idem ; révèlent les patterns frauduleux de manière trop évidente \\[0.2cm]
+\texttt{isFlaggedFraud}
+  & Label proxy du système existant ; ne doit pas alimenter l'apprentissage \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------
+\section{Ingénierie de variables}
+% ---------------------------------------------------
+
+\subsection{Variables temporelles}
+
+La variable \texttt{step} (pas de temps en heures) est décomposée en trois variables
+cycliques qui capturent des patterns à différentes granularités temporelles :
+
+\begin{itemize}
+  \item \texttt{hour} : heure dans la journée (0--23), calculée par
+    $\texttt{step} \bmod 24$ ;
+  \item \texttt{day} : jour de simulation (0--30), calculé par
+    $\lfloor \texttt{step} / 24 \rfloor \bmod 31$ ;
+  \item \texttt{week} : semaine de simulation (0--4), calculée par
+    $\lfloor \texttt{step} / 168 \rfloor$.
+\end{itemize}
+
+\subsection{Variables comportementales et de risque}
+
+Cinq variables dérivées sont construites à partir des observations de l'EDA :
+
+\begin{table}[H]
+\centering
+\caption{Variables dérivées construites lors du feature engineering}
+\label{tab:features_derivees}
+\begin{tabular}{p{3.5cm}p{4.5cm}p{4cm}}
+\toprule
+\textbf{Variable} & \textbf{Formule / Logique} & \textbf{Signal mesuré} \\
+\midrule
+\texttt{high\_risk\_hour} &
+  $1$ si \texttt{hour} $\in \{0,...,9, 23\}$ &
+  Ratio fraude $10{,}63\times$ supérieur \\[0.2cm]
+\texttt{is\_transfer\_or\_cashout} &
+  $1$ si \texttt{type} $\in$ \{TRANSFER, CASH\_OUT\} &
+  Seuls types avec fraudes réelles \\[0.2cm]
+\texttt{balance\_diff\_orig} &
+  \texttt{oldbalanceOrg} $-$ \texttt{newbalanceOrig} &
+  Corrélation 0{,}3662 avec \texttt{isFraud} \\[0.2cm]
+\texttt{dest\_zero\_balance} &
+  $1$ si \texttt{oldbalanceDest} $= 0$ &
+  Taux fraude 2{,}52\,\% vs 0{,}13\,\% global \\[0.2cm]
+\texttt{log\_amount} &
+  $\log(1 + \texttt{amount})$ &
+  Corrige skewness $= 30{,}80$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Chacune de ces variables est justifiée empiriquement par l'EDA --- aucun choix n'est
+arbitraire.
+
+\subsection{Encodage one-hot}
+
+La variable catégorielle \texttt{type} (5 modalités) est encodée par
+\textbf{one-hot encoding} (\textit{drop\_first=False}), produisant les colonnes
+\texttt{type\_CASH\_IN}, \texttt{type\_CASH\_OUT}, \texttt{type\_DEBIT},
+\texttt{type\_PAYMENT} et \texttt{type\_TRANSFER}. L'absence de suppression d'une
+colonne (\textit{drop\_first=False}) est volontaire : avec un arbre de décision ou un
+autoencoder, toutes les modalités sont nécessaires.
+
+\subsection{Ensemble final des variables}
+
+Après feature engineering, le jeu de données comprend \textbf{14 variables} :
+
+\begin{table}[H]
+\centering
+\caption{Ensemble final des 14 variables du modèle}
+\label{tab:final_features}
+\begin{tabular}{p{2.5cm}p{6cm}p{3cm}}
+\toprule
+\textbf{Catégorie} & \textbf{Variables} & \textbf{Traitement} \\
+\midrule
+Temporelles  & \texttt{step}, \texttt{hour}, \texttt{day}, \texttt{week} & StandardScaler \\
+Montant      & \texttt{log\_amount} & StandardScaler \\
+Comportement & \texttt{balance\_diff\_orig} & StandardScaler \\
+Binaires     & \texttt{high\_risk\_hour}, \texttt{is\_transfer\_or\_cashout},
+               \texttt{dest\_zero\_balance} & --- \\
+Type (OHE)   & \texttt{type\_CASH\_IN}, \texttt{type\_CASH\_OUT}, \texttt{type\_DEBIT},
+               \texttt{type\_PAYMENT}, \texttt{type\_TRANSFER} & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% ---------------------------------------------------
+\section{Division et normalisation}
+% ---------------------------------------------------
+
+\subsection{Division stratifiée}
+
+Le corpus est divisé en trois sous-ensembles de manière \textbf{stratifiée} sur la variable
+cible, afin de conserver la proportion de fraudes dans chaque partition --- essentiel
+lorsque les classes sont aussi déséquilibrées.
+
+\begin{table}[H]
+\centering
+\caption{Division stratifiée du corpus}
+\label{tab:splits}
+\begin{tabular}{lrrl}
+\toprule
+\textbf{Ensemble} & \textbf{Taille} & \textbf{Fraudes} & \textbf{Rôle} \\
+\midrule
+Entraînement & 139~999 & 181 & Apprentissage des modèles \\
+Validation   & 30~000  & 38  & Réglage des hyperparamètres et seuils \\
+Test         & 30~001  & 39  & Évaluation finale (jamais consulté avant) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Principe d'étanchéité :} L'ensemble de test n'est jamais consulté avant
+l'évaluation finale, conformément aux bonnes pratiques anti-\textit{data snooping}.
+Ce principe a été respecté tout au long du projet.
+
+\subsection{Normalisation}
+
+Le \textbf{StandardScaler} est ajusté (\textit{fit}) exclusivement sur l'ensemble
+d'entraînement, puis appliqué (\textit{transform}) sur les trois partitions. Cette
+discipline stricte garantit l'absence de leakage statistique : aucune information sur la
+distribution du test ne s'infiltre dans les transformations appliquées à l'entraînement.
+
+% ---------------------------------------------------
+\section{Gestion du déséquilibre}
+% ---------------------------------------------------
+
+\subsection{Pondération des classes}
+
+Pour les modèles supervisés, des poids de classes sont calculés automatiquement
+(formule \textit{sklearn balanced}) :
+
+\[
+w_c = \frac{n_{\text{total}}}{n_{\text{classes}} \times n_c}
+\]
+
+Avec 139~999 transactions d'entraînement dont 181 fraudes, les poids obtenus sont
+approximativement $w_0 \approx 0{,}50$ et $w_1 \approx 386{,}7$. Cela revient à donner
+à chaque transaction frauduleuse un poids environ 386 fois supérieur à une transaction
+légitime lors du calcul de la fonction de perte --- compensant ainsi le déséquilibre du
+corpus.
+
+\subsection{SMOTE}
+
+Pour les variantes avec rééchantillonnage, \textbf{SMOTE} (\textit{Synthetic Minority
+Over-sampling Technique}) génère des exemples synthétiques de la classe minoritaire par
+interpolation dans l'espace des features. Le principe : pour chaque transaction frauduleuse,
+SMOTE choisit aléatoirement $k$ voisins les plus proches dans l'espace des features, puis
+crée de nouveaux exemples sur les segments reliant la transaction à ses voisins.
+
+Il est appliqué \textbf{uniquement sur l'ensemble d'entraînement} (jamais sur validation
+ou test), afin de ne pas contaminer l'évaluation avec des exemples synthétiques.
+
+\subsection{Ensemble pour l'autoencoder}
+
+Pour l'autoencoder non supervisé, un sous-ensemble \texttt{X\_train\_normal} est extrait :
+il contient \textbf{uniquement les 139~818 transactions légitimes} de l'entraînement
+(0 fraude). Cela permet au modèle d'apprendre exclusivement la distribution normale ---
+principe fondateur de la détection d'anomalies par reconstruction.
+
+% ---------------------------------------------------
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+% ---------------------------------------------------
+
+La préparation des données produit un jeu de \textbf{14 variables représentatives} des
+patterns de fraude, en respectant strictement l'étanchéité entre les partitions. Les
+7 variables dérivées ont chacune été validées par une mesure empirique issue de l'EDA ---
+aucune n'est arbitraire. La discipline anti-leakage (StandardScaler fit sur train seulement,
+SMOTE appliqué uniquement sur le train, test jamais consulté) garantit que l'évaluation
+finale reflète les véritables performances sur des données inédites. Ce socle solide permet
+d'entraîner des modèles fiables et comparables, décrits dans le chapitre suivant.

@@ -1,0 +1,195 @@
+% =====================================================
+% CHAPITRE 7 : DÉPLOIEMENT ET REPRODUCTIBILITÉ (CRISP-DM Phase 6)
+% =====================================================
+\chapter{Déploiement et reproductibilité}
+
+% ---------------------------------------------------
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+% ---------------------------------------------------
+
+Un modèle performant qui ne peut pas être réexécuté par quelqu'un d'autre n'a pas grande
+valeur dans un contexte professionnel. Pour ce projet, le déploiement signifie rendre
+l'ensemble du travail \textbf{reproductible de bout en bout}, maintenable par un futur
+contributeur et extensible si les besoins évoluent. Ce chapitre décrit l'architecture
+choisie, l'organisation des sorties, le script d'orchestration, les garanties de
+reproductibilité, la suite de tests unitaires mise en place, et les perspectives
+d'amélioration identifiées pour une éventuelle industrialisation du système.
+
+% ---------------------------------------------------
+\section{Architecture du projet}
+% ---------------------------------------------------
+
+\subsection{Structure modulaire}
+
+Le projet est organisé en modules fonctionnels clairement délimités, chacun ayant une
+responsabilité unique (\textit{separation of concerns}) :
+
+\begin{table}[H]
+\centering
+\caption{Structure des modules du projet}
+\label{tab:modules}
+\begin{tabular}{p{4.5cm}p{8cm}}
+\toprule
+\textbf{Module} & \textbf{Responsabilité} \\
+\midrule
+\texttt{src/preprocessing/}        & Chargement, nettoyage, normalisation, split \\
+\texttt{src/feature\_engineering/} & Création des 7 variables dérivées \\
+\texttt{src/models/}               & Modèles ML (LR, RF) et autoencoder PyTorch \\
+\texttt{src/pipeline/}             & Orchestration entraînement et inférence \\
+\texttt{src/utils/}                & Métriques, évaluation, utilitaires communs \\
+\texttt{src/visualization/}        & Génération de figures et graphiques \\
+\texttt{src/ollama\_integration/}  & Génération d'explications LLM via Ollama \\
+\texttt{src/explainability/}       & Explicabilité SHAP et LIME \\
+\texttt{tests/}                    & Tests unitaires (pytest) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Cette organisation garantit que chaque module peut être modifié, testé et remplacé
+indépendamment --- un avantage décisif pour la maintenance et l'évolution du système.
+
+\subsection{Organisation des sorties}
+
+Le pipeline produit des artefacts organisés dans le répertoire \texttt{outputs/} :
+
+\begin{itemize}
+  \item \texttt{outputs/models/} : artefacts sérialisés --- poids de l'autoencoder,
+    scalers, seuils optimaux, poids des classes, scores AE
+    (\texttt{ae\_scores\_val/test.npy}) et tenseurs SHAP sauvegardés
+    (\texttt{shap\_values\_*.npy}) ;
+  \item \texttt{outputs/reports/} : rapports JSON des phases exécutées
+    (\texttt{eda\_report.json}, \texttt{prep\_report.json},
+    \texttt{baseline\_report.json}, \texttt{autoencoder\_report.json}) ;
+  \item \texttt{outputs/figures/} : courbes de performance, matrices de confusion,
+    distributions, beeswarm SHAP, projection latente de l'AE ;
+  \item \texttt{outputs/anomalies\_report.csv} : liste des transactions signalées avec
+    leurs scores et niveaux de risque ;
+  \item \texttt{outputs/explanations.json} : explications textuelles des anomalies
+    générées par Ollama.
+\end{itemize}
+
+% ---------------------------------------------------
+\section{Orchestration et reproductibilité}
+% ---------------------------------------------------
+
+\subsection{Script d'orchestration}
+
+Le script \texttt{run\_all.py} constitue le point d'entrée unique du pipeline. Il valide
+d'abord les imports des modules \texttt{src/}, puis exécute séquentiellement les six
+notebooks (\texttt{01} à \texttt{06}) via \texttt{nbconvert}. Il propose plusieurs
+modes d'exécution :
+
+\begin{itemize}
+  \item \textbf{Exécution complète} : lance les notebooks 01 à 06 en séquence ;
+  \item \textbf{Reprise partielle} : option \texttt{--from N} pour reprendre à partir
+    d'un notebook spécifique ;
+  \item \textbf{Notebook unique} : option \texttt{--only N} pour n'exécuter qu'une seule
+    étape ;
+  \item \textbf{Vérification uniquement} : option \texttt{--check-only} pour valider
+    les imports sans lancer les calculs.
+\end{itemize}
+
+\subsection{Garanties de reproductibilité}
+
+La reproductibilité est assurée par quatre mécanismes complémentaires :
+
+\begin{enumerate}
+  \item \textbf{Graines aléatoires fixes} : \texttt{RANDOM\_STATE = 42} dans tous les
+    modules qui comportent une part d'aléatoire (split, SMOTE, forêt aléatoire, dropout).
+  \item \textbf{Environnement virtuel} : toutes les dépendances sont centralisées dans
+    \texttt{requirements.txt} avec des contraintes de versions, à installer dans un
+    environnement Python isolé.
+  \item \textbf{Pipeline déterministe} : toutes les transformations (scaler, encodeurs)
+    sont sérialisées via \texttt{joblib} dans \texttt{outputs/models/} pour être
+    réappliquées à l'inférence sans recalcul.
+  \item \textbf{Séparation stricte des données} : les ensembles de validation et test
+    ne sont jamais utilisés pour l'apprentissage ni les transformations statistiques.
+\end{enumerate}
+
+% ---------------------------------------------------
+\section{Tests unitaires}
+% ---------------------------------------------------
+
+\subsection{Structure de la suite de tests}
+
+Le dépôt contient une suite de tests unitaires structurée sous \texttt{tests/} et
+exécutable via \texttt{pytest -q} :
+
+\begin{table}[H]
+\centering
+\caption{Suite de tests unitaires du projet}
+\label{tab:tests}
+\begin{tabular}{p{5.5cm}p{7cm}}
+\toprule
+\textbf{Fichier de test} & \textbf{Modules testés} \\
+\midrule
+\texttt{tests/test\_preprocessing.py}  & Pipeline de préparation des données \\
+\texttt{tests/test\_models.py}         & Modèles ML et autoencoder \\
+\texttt{tests/test\_visualization.py}  & Génération de figures \\
+\texttt{tests/test\_utils.py}          & Utilitaires et métriques \\
+\texttt{tests/test\_ollama.py}         & Intégration LLM (Ollama) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les fichiers de tests constituent un squelette structuré prêt à être alimenté. L'étape
+suivante consiste à implémenter les cas de test dans ces fichiers pour atteindre
+l'objectif de couverture à 80\,\%.
+
+% ---------------------------------------------------
+\section{Perspectives d'amélioration}
+% ---------------------------------------------------
+
+\subsection{Améliorations techniques}
+
+Les résultats obtenus ouvrent plusieurs pistes d'amélioration algorithmique :
+
+\begin{itemize}
+  \item \textbf{Modèles de gradient boosting} : intégration de LightGBM ou XGBoost,
+    qui constituent l'état de l'art sur les données tabulaires et pourraient améliorer
+    les performances supervisées tout en restant interprétables via SHAP.
+  \item \textbf{Autoencoder variationnel (VAE)} : passage d'un autoencoder déterministe
+    à un VAE qui modélise la distribution des données normales sous forme probabiliste
+    --- plus robuste pour détecter les anomalies de bord de distribution.
+  \item \textbf{Détection en temps réel} : portage du pipeline vers une architecture
+    streaming (Apache Kafka + Apache Flink) pour analyser les transactions au fil de
+    l'eau, plutôt qu'en batch.
+  \item \textbf{Apprentissage en ligne} : mise à jour continue des modèles au fil des
+    nouvelles transactions validées par les auditeurs, pour s'adapter aux évolutions
+    des comportements frauduleux.
+\end{itemize}
+
+\subsection{Améliorations métier}
+
+Sur le plan fonctionnel, plusieurs extensions rendraient le système directement opérationnel
+en production :
+
+\begin{itemize}
+  \item \textbf{Interface utilisateur} : tableau de bord (dashboard) pour les analystes
+    permettant de consulter les alertes, de les valider ou de les rejeter, et de consulter
+    les explications en langage naturel sans accéder au code.
+  \item \textbf{Boucle de rétroaction (\textit{feedback loop})} : intégration des
+    décisions humaines (fraude confirmée ou infirmée) pour ré-entraîner périodiquement
+    les modèles et améliorer leur précision sur les données métier réelles.
+  \item \textbf{Détection comportementale} : profiling par utilisateur ou par compte
+    pour détecter non plus des transactions isolées anormales, mais des dérives
+    comportementales dans le temps (ex : montants progressivement croissants, changements
+    d'habitudes de transfert).
+\end{itemize}
+
+% ---------------------------------------------------
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+% ---------------------------------------------------
+
+Ce chapitre a présenté l'architecture de déploiement et les mécanismes de reproductibilité
+du projet. La \textbf{structure modulaire} et l'orchestration via \texttt{run\_all.py}
+fournissent une base maintenable et facilement reprise par un nouveau développeur. Les
+quatre garanties de reproductibilité --- graines fixes, environnement versionné, artefacts
+sérialisés, séparation étanche des données --- assurent que les résultats présentés dans
+ce rapport sont intégralement reproductibles. La suite de tests structurée pose les bases
+d'un contrôle qualité progressif. Les perspectives identifiées offrent de nombreuses pistes
+pour prolonger ce travail vers un \textbf{système de production opérationnel}, capable
+d'analyser des flux transactionnels en temps réel et d'apprendre de façon continue
+des retours des auditeurs.

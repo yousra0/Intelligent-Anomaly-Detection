@@ -48,14 +48,14 @@ def test_predict_empty_csv(client):
 
 
 def test_predict_returns_sorted_by_score(client, test_csv):
-    """En mode paysim, les transactions sont triées par xgb_score décroissant."""
+    """En mode standard, les transactions sont triées par xgb_score décroissant."""
     r = client.post(
         "/api/predict",
         files={"file": ("test.csv", test_csv, "text/csv")},
     )
     assert r.status_code == 200
     data = r.json()
-    assert data["prediction_mode"] == "paysim"
+    assert data["prediction_mode"] == "standard"
     txs = r.json()["transactions"]
     if len(txs) > 1:
         scores = [t["xgb_score"] for t in txs]
@@ -63,10 +63,10 @@ def test_predict_returns_sorted_by_score(client, test_csv):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Tests du mode paysim
+# Tests du mode standard (schéma complet)
 # ─────────────────────────────────────────────────────────────────────────────
 
-class TestPaysimMode:
+class TestStandardMode:
 
     def test_schema_detection_returned(self, client, test_csv):
         r = client.post(
@@ -76,7 +76,7 @@ class TestPaysimMode:
         data = r.json()
         assert "schema_detection" in data
         sd = data["schema_detection"]
-        assert sd["mode"] == "paysim"
+        assert sd["mode"] == "standard"
         assert sd["use_xgb"] is True
         assert sd["use_ae"] is True
         assert sd["use_isoforest"] is False
@@ -90,7 +90,7 @@ class TestPaysimMode:
         assert "XGBoost" in data["model_used"]
         assert "Autoencoder" in data["model_used"]
 
-    def test_xgb_score_present_in_paysim_mode(self, client, test_csv):
+    def test_xgb_score_present_in_standard_mode(self, client, test_csv):
         r = client.post(
             "/api/predict",
             files={"file": ("test.csv", test_csv, "text/csv")},
@@ -99,7 +99,7 @@ class TestPaysimMode:
         assert all("xgb_score" in t for t in txs)
         assert all("ae_score" in t for t in txs)
 
-    def test_threshold_present_in_paysim_mode(self, client, test_csv):
+    def test_threshold_present_in_standard_mode(self, client, test_csv):
         r = client.post(
             "/api/predict",
             files={"file": ("test.csv", test_csv, "text/csv")},
@@ -114,7 +114,7 @@ class TestPaysimMode:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _generic_csv_no_amount(n: int = 20) -> bytes:
-    """CSV PaySim sans la colonne 'amount' → IsoForest (amount non détecté)."""
+    """CSV transactionnel sans la colonne 'amount' → IsoForest (amount non détecté)."""
     rng = np.random.default_rng(7)
     types = ["TRANSFER", "CASH_OUT", "PAYMENT"]
     df = pd.DataFrame({
@@ -211,9 +211,9 @@ class TestGenericMode:
         assert r.status_code == 200
         data = r.json()
         # mode peut être ae_isoforest ou ae_only selon les colonnes numériques dispo
-        assert data["prediction_mode"] in ("ae_isoforest", "ae_only", "paysim")
+        assert data["prediction_mode"] in ("ae_isoforest", "ae_only", "standard")
         sd = data["schema_detection"]
-        assert sd["use_xgb"] is False or data["prediction_mode"] == "paysim"
+        assert sd["use_xgb"] is False or data["prediction_mode"] == "standard"
 
     def test_ae_isoforest_mode_has_both_scores(self, client):
         """En mode ae_isoforest, ae_score ET isoforest_score présents."""
@@ -273,7 +273,7 @@ class TestGenericMode:
         detail = r.json()["detail"]
         assert "incompatible" in str(detail).lower() or "colonnes" in str(detail).lower()
 
-    def test_generic_mode_with_renamed_paysim_minus_amount(self, client):
+    def test_generic_mode_with_renamed_columns_minus_amount(self, client):
         """Colonnes renommées + amount absent → mode générique."""
         rng = np.random.default_rng(99)
         n = 15
@@ -294,5 +294,5 @@ class TestGenericMode:
         )
         assert r.status_code == 200
         data = r.json()
-        assert data["prediction_mode"] != "paysim"
+        assert data["prediction_mode"] != "standard"
         assert data["schema_detection"]["use_xgb"] is False

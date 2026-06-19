@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
-import { missionStore } from "@/lib/store/missionStore";
-import { auditLogStore } from "@/lib/store/auditLogStore";
-import { userStore } from "@/lib/store/userStore";
+import { missionRepository } from "@/lib/db/repositories/missionRepository";
+import { auditLogRepository } from "@/lib/db/repositories/auditLogRepository";
+import { userRepository } from "@/lib/db/repositories/userRepository";
 import type { CreateMissionPayload, UserRole } from "@/types";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -11,7 +10,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "change-me-in-production-at-least-32-chars!!"
 );
 
-async function getCallerFromCookie(): Promise<{ id: string; name: string; role: UserRole } | null> {
+async function getCaller() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("pwc_token")?.value;
@@ -28,30 +27,42 @@ async function getCallerFromCookie(): Promise<{ id: string; name: string; role: 
 }
 
 export async function GET() {
-  return NextResponse.json(missionStore.getAll());
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
+  // Auditors only see missions they are assigned to
+  const missions = caller.role === "auditor"
+    ? await missionRepository.getByAssignee(caller.id)
+    : await missionRepository.getAll();
+
+  return NextResponse.json(missions, {
+    headers: { "Cache-Control": "private, max-age=60, stale-while-revalidate=300" },
+  });
 }
 
 export async function POST(req: Request) {
   const body = (await req.json()) as CreateMissionPayload;
-  const caller = await getCallerFromCookie();
+  const caller = await getCaller();
 
-  const mission = missionStore.add({
-    id: uuidv4(),
-    ...body,
-    status: "active",
-    created_by: caller?.id ?? "u1",
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  if (!caller) {
+    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  }
 
-  // Resolve assigned auditor name for audit log
-  const assignedUser = body.assigned_to ? userStore.getById(body.assigned_to) : undefined;
+  if (!["manager", "partner", "admin"].includes(caller.role)) {
+    return NextResponse.json({ error: "Accès refusé. Rôle requis : manager, partner ou admin." }, { status: 403 });
+  }
 
-  auditLogStore.add({
+  const mission = await missionRepository.create(body, caller.id);
+
+  const assignedUser = body.assigned_to
+    ? await userRepository.getById(body.assigned_to)
+    : undefined;
+
+  await auditLogRepository.add({
     action: "mission.create",
-    user_id: caller?.id ?? "u1",
-    user_name: caller?.name ?? "Inconnu",
-    user_role: caller?.role ?? "auditor",
+    user_id: caller.id,
+    user_name: caller.name,
+    user_role: caller.role,
     mission_id: mission.id,
     mission_name: mission.name,
     details: `Mission créée : "${mission.name}" — ${mission.company_name}${assignedUser ? ` — Assignée à ${assignedUser.name}` : ""}`,

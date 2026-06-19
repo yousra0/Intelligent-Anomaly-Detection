@@ -224,10 +224,10 @@ class TestDynamicFeatureBuilder:
         X, report = builder.build(canonical_df, profile, scaler)
         assert report.n_features == 14
 
-    def test_canonical_paysim_ok_status(self, builder, canonical_df):
+    def test_canonical_ok_status(self, builder, canonical_df):
         scaler, profile = self._get_scaler_and_profile(canonical_df)
         _, report = builder.build(canonical_df, profile, scaler)
-        # Sur un dataset PaySim canonique, aucun fallback ne doit être utilisé
+        # Sur un dataset canonique, aucun fallback ne doit être utilisé
         assert len(report.features_fallback) == 0, f"Fallbacks inattendus: {report.features_fallback}"
 
     def test_missing_amount_fallback(self, builder):

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { Navbar } from "@/components/layout/Navbar";
+import { Logo } from "@/components/ui/Logo";
 import { Loader2 } from "lucide-react";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -18,11 +19,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F7F7F7]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-pwc-orange">
-            <span className="text-lg font-black text-white">PwC</span>
-          </div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Logo size="lg" showWordmark={false} />
           <Loader2 className="h-5 w-5 animate-spin text-pwc-orange" />
         </div>
       </div>
@@ -32,9 +31,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!isAuthenticated) return null;
 
   return (
-    <div className="min-h-screen bg-[#F7F7F7]">
+    <div className="flex min-h-screen flex-col bg-background">
       <Navbar />
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+      {/*
+        Desktop-first main area:
+        - w-full fills entire viewport width
+        - max-w-screen-2xl caps at 1536px on very wide screens
+        - px scales up with breakpoints for comfortable reading
+        - No forced margins that would require browser zoom
+      */}
+      <main className="mx-auto w-full max-w-screen-2xl flex-1 px-4 py-6 sm:px-6 md:px-8 lg:px-10 xl:px-12">
+        {children}
+      </main>
     </div>
   );
 }

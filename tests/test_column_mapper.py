@@ -23,9 +23,9 @@ def _make_df(**kwargs) -> pd.DataFrame:
     return pd.DataFrame(base)
 
 
-def _paysim_renamed(**rename) -> pd.DataFrame:
+def _transaction_renamed(**rename) -> pd.DataFrame:
     """
-    Crée un DataFrame PaySim avec des colonnes renommées selon `rename`.
+    Crée un DataFrame transactionnel avec des colonnes renommées selon `rename`.
     rename = {nouveau_nom: nom_canonique}
     """
     canonical = {
@@ -89,10 +89,10 @@ class TestScoring:
 
 class TestColumnMapper:
 
-    # ── Noms PaySim canoniques ────────────────────────────────────────────
+    # ── Noms canoniques ───────────────────────────────────────────────────
 
-    def test_canonical_paysim_names(self):
-        df = _paysim_renamed()  # aucun rename
+    def test_canonical_names(self):
+        df = _transaction_renamed()  # aucun rename
         result = map_columns(df)
         assert result.success
         for canonical in ["step", "type", "amount", "oldbalanceOrg", "newbalanceOrig",
@@ -103,27 +103,27 @@ class TestColumnMapper:
 
     def test_amount_variants(self):
         for col in ["montant", "amt", "transaction_amount", "value", "transaction_value"]:
-            df = _paysim_renamed(**{col: "amount"})
+            df = _transaction_renamed(**{col: "amount"})
             r = map_columns(df)
             assert "amount" in r.mapping, f"'{col}' non reconnu comme amount"
             assert r.mapping["amount"] == col
 
     def test_step_variants(self):
         for col in ["timestamp", "time_step", "period", "date"]:
-            df = _paysim_renamed(**{col: "step"})
+            df = _transaction_renamed(**{col: "step"})
             r = map_columns(df)
             assert "step" in r.mapping, f"'{col}' non reconnu comme step"
 
     def test_type_variants(self):
         for col in ["transaction_type", "category", "kind", "nature"]:
-            df = _paysim_renamed(**{col: "type"})
+            df = _transaction_renamed(**{col: "type"})
             r = map_columns(df)
             assert "type" in r.mapping, f"'{col}' non reconnu comme type"
 
     # ── Noms français ─────────────────────────────────────────────────────
 
     def test_french_columns(self):
-        df = _paysim_renamed(
+        df = _transaction_renamed(
             montant="amount",
             type_transaction="type",
             solde_avant="oldbalanceOrg",
@@ -136,7 +136,7 @@ class TestColumnMapper:
     # ── Colonnes de balance ────────────────────────────────────────────────
 
     def test_balance_columns_french(self):
-        df = _paysim_renamed(
+        df = _transaction_renamed(
             solde_avant_source="oldbalanceOrg",
             solde_apres_source="newbalanceOrig",
             solde_avant_dest="oldbalanceDest",
@@ -149,7 +149,7 @@ class TestColumnMapper:
         assert r.mapping.get("newbalanceDest") == "solde_apres_dest"
 
     def test_balance_english_variants(self):
-        df = _paysim_renamed(
+        df = _transaction_renamed(
             balance_before="oldbalanceOrg",
             balance_after="newbalanceOrig",
             old_balance_dest="oldbalanceDest",
@@ -165,7 +165,7 @@ class TestColumnMapper:
     # ── Pas de double affectation ──────────────────────────────────────────
 
     def test_no_column_used_twice(self):
-        df = _paysim_renamed()
+        df = _transaction_renamed()
         r = map_columns(df)
         mapped_cols = list(r.mapping.values())
         assert len(mapped_cols) == len(set(mapped_cols)), "Une colonne affectée deux fois"
@@ -173,7 +173,7 @@ class TestColumnMapper:
     # ── Confiance ─────────────────────────────────────────────────────────
 
     def test_exact_match_confidence_is_high(self):
-        df = _paysim_renamed()
+        df = _transaction_renamed()
         r = map_columns(df)
         assert r.confidence["amount"] >= 0.90
         assert r.confidence["step"] >= 0.90
@@ -181,13 +181,13 @@ class TestColumnMapper:
     # ── Type values normalization ─────────────────────────────────────────
 
     def test_type_values_uppercased(self):
-        df = _paysim_renamed()
+        df = _transaction_renamed()
         df["type"] = ["transfer", "cash_out", "payment"]
         r = map_columns(df)
         assert set(r.df["type"].tolist()) == {"TRANSFER", "CASH_OUT", "PAYMENT"}
 
     def test_type_values_french(self):
-        df = _paysim_renamed()
+        df = _transaction_renamed()
         df["type"] = ["virement", "retrait", "paiement"]
         r = map_columns(df)
         assert set(r.df["type"].tolist()) == {"TRANSFER", "CASH_OUT", "PAYMENT"}

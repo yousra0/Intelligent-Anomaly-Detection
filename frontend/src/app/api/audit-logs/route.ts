@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auditLogStore } from "@/lib/store/auditLogStore";
+import { auditLogRepository } from "@/lib/db/repositories/auditLogRepository";
 import type { AuditLogAction, UserRole } from "@/types";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -8,7 +8,7 @@ const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "change-me-in-production-at-least-32-chars!!"
 );
 
-async function getCallerFromCookie() {
+async function getCaller() {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get("pwc_token")?.value;
@@ -21,19 +21,24 @@ async function getCallerFromCookie() {
 }
 
 export async function GET(req: Request) {
+  const caller = await getCaller();
+  if (!caller) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+
   const { searchParams } = new URL(req.url);
   const missionId = searchParams.get("mission_id");
   const limit = parseInt(searchParams.get("limit") ?? "200");
 
   const logs = missionId
-    ? auditLogStore.getByMission(missionId)
-    : auditLogStore.getAll();
+    ? await auditLogRepository.getByMission(missionId)
+    : await auditLogRepository.getAll(limit);
 
-  return NextResponse.json(logs.slice(0, limit));
+  return NextResponse.json(logs, {
+    headers: { "Cache-Control": "private, max-age=30, stale-while-revalidate=120" },
+  });
 }
 
 export async function POST(req: Request) {
-  const caller = await getCallerFromCookie();
+  const caller = await getCaller();
   if (!caller) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
   const body = (await req.json()) as {
@@ -43,7 +48,7 @@ export async function POST(req: Request) {
     details: string;
   };
 
-  const log = auditLogStore.add({
+  const log = await auditLogRepository.add({
     action: body.action,
     user_id: caller.id,
     user_name: caller.name,

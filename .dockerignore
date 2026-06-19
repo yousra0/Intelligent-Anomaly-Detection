@@ -1,0 +1,17 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.git
+.github
+notebooks
+data
+uploads
+frontend
+docs
+diagrams
+*.pdf
+*.tex
+*.log
+*.aux

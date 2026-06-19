@@ -30,7 +30,7 @@ def client(project_root):
         yield c
 
 
-def _make_paysim_df(n: int = 20, include_fraud_like: bool = True) -> pd.DataFrame:
+def _make_transaction_df(n: int = 20, include_fraud_like: bool = True) -> pd.DataFrame:
     rng = np.random.default_rng(42)
     types = ["TRANSFER", "CASH_OUT", "PAYMENT", "DEBIT", "CASH_IN"]
 
@@ -58,7 +58,7 @@ def _make_paysim_df(n: int = 20, include_fraud_like: bool = True) -> pd.DataFram
 
 @pytest.fixture
 def test_csv() -> bytes:
-    df = _make_paysim_df(n=20)
+    df = _make_transaction_df(n=20)
     buf = io.BytesIO()
     df.to_csv(buf, index=False)
     return buf.getvalue()
@@ -67,7 +67,7 @@ def test_csv() -> bytes:
 @pytest.fixture
 def test_csv_invalid() -> bytes:
     """CSV sans la colonne 'amount'."""
-    df = _make_paysim_df(n=10).drop(columns=["amount"])
+    df = _make_transaction_df(n=10).drop(columns=["amount"])
     buf = io.BytesIO()
     df.to_csv(buf, index=False)
     return buf.getvalue()

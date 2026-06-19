@@ -1,12 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building2, Calendar, ArrowRight, User, Trash2 } from "lucide-react";
+import { Building2, Calendar, ArrowRight, Trash2 } from "lucide-react";
 import {
   formatDate,
   STATUS_LABELS_FR,
@@ -14,26 +14,29 @@ import {
 } from "@/lib/utils";
 import { usePermissions } from "@/lib/hooks/usePermissions";
 import { missionService } from "@/lib/api/missionService";
-import { userService } from "@/lib/api/userService";
-import type { Mission } from "@/types";
+import type { Mission, User as UserType } from "@/types";
 
 interface MissionCardProps {
   mission: Mission;
+  auditors: UserType[];
 }
 
-export function MissionCard({ mission }: MissionCardProps) {
+export function MissionCard({ mission, auditors }: MissionCardProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { can } = usePermissions();
 
-  const { data: auditors = [] } = useQuery({
-    queryKey: ["users", "auditors"],
-    queryFn: userService.getAuditors,
-  });
-
-  const assignedAuditor = mission.assigned_to
-    ? auditors.find((a) => a.id === mission.assigned_to)
-    : null;
+  // Resolve all assigned auditors (multi-auditor support)
+  const assignedAuditors: UserType[] = (() => {
+    const ids = mission.assigned_auditors?.length
+      ? mission.assigned_auditors
+      : mission.assigned_to
+      ? [mission.assigned_to]
+      : [];
+    return ids
+      .map((id) => auditors.find((a) => a.id === id))
+      .filter(Boolean) as UserType[];
+  })();
 
   const deleteMutation = useMutation({
     mutationFn: () => missionService.delete(mission.id),
@@ -84,14 +87,22 @@ export function MissionCard({ mission }: MissionCardProps) {
           </span>
         </div>
 
-        {/* Assigned auditor */}
-        {assignedAuditor && (
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <User className="h-3.5 w-3.5 shrink-0 text-pwc-orange" />
-            <span className="text-xs">
-              <span className="text-muted-foreground">Assigné à : </span>
-              <span className="font-medium text-foreground">{assignedAuditor.name}</span>
+        {/* Assigned auditors */}
+        {assignedAuditors.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-muted-foreground">
+              Auditeur{assignedAuditors.length > 1 ? "s" : ""} assigné{assignedAuditors.length > 1 ? "s" : ""} :
             </span>
+            <div className="flex flex-wrap gap-1">
+              {assignedAuditors.map((a) => (
+                <span
+                  key={a.id}
+                  className="rounded-full bg-pwc-orange/10 px-2 py-0.5 text-xs font-medium text-pwc-orange"
+                >
+                  {a.name}
+                </span>
+              ))}
+            </div>
           </div>
         )}
 
@@ -115,7 +126,7 @@ export function MissionCard({ mission }: MissionCardProps) {
           <Button
             variant="outline"
             size="icon"
-            className="shrink-0 text-red-500 hover:border-red-300 hover:bg-red-50"
+            className="shrink-0 text-red-500 hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-900/20"
             disabled={deleteMutation.isPending}
             onClick={() => deleteMutation.mutate()}
           >

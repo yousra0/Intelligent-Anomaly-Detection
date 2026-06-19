@@ -15,7 +15,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ENUM TYPES
 -- ─────────────────────────────────────────────
 
-CREATE TYPE user_role AS ENUM ('auditor', 'manager', 'partner', 'admin');
+CREATE TYPE user_role   AS ENUM ('auditor', 'manager', 'partner', 'admin');
+CREATE TYPE user_status AS ENUM ('active', 'inactive');
 
 CREATE TYPE mission_status AS ENUM ('active', 'in_progress', 'completed', 'archived');
 
@@ -38,7 +39,8 @@ CREATE TYPE audit_log_action AS ENUM (
   'dataset.upload', 'dataset.delete', 'dataset.replace',
   'analysis.start', 'analysis.complete',
   'report.generate', 'report.download',
-  'anomaly.comment', 'anomaly.status_change'
+  'anomaly.comment', 'anomaly.status_change',
+  'user.create', 'user.update', 'user.disable', 'user.activate', 'user.reset_password'
 );
 
 -- ─────────────────────────────────────────────
@@ -46,23 +48,31 @@ CREATE TYPE audit_log_action AS ENUM (
 -- ─────────────────────────────────────────────
 
 CREATE TABLE users (
-  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email       TEXT UNIQUE NOT NULL,
-  name        TEXT NOT NULL,
-  password_hash TEXT NOT NULL,              -- bcrypt hash, never store plaintext
-  role        user_role NOT NULL DEFAULT 'auditor',
-  is_active   BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  email         TEXT UNIQUE NOT NULL,
+  -- Stored as "First Last" for display; also split into first_name/last_name for forms
+  name          TEXT NOT NULL,
+  first_name    TEXT,
+  last_name     TEXT,
+  password_hash TEXT NOT NULL,        -- bcrypt hash, never store plaintext
+  role          user_role   NOT NULL DEFAULT 'auditor',
+  status        user_status NOT NULL DEFAULT 'active',
+  phone         TEXT,
+  position      TEXT,                 -- Job title, e.g. "Auditeur Senior"
+  department    TEXT,                 -- e.g. "Audit Financier"
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Insert initial admin (password must be hashed with bcrypt at application startup)
--- UPDATE users SET password_hash = crypt('your_password', gen_salt('bf')) WHERE email = 'admin@pwc.com';
-INSERT INTO users (id, email, name, role, password_hash) VALUES
-  ('u1', 'auditeur@pwc.com', 'Sophie Aubert',  'auditor',  ''),
-  ('u2', 'manager@pwc.com',  'Marc Martin',    'manager',  ''),
-  ('u3', 'partner@pwc.com',  'Pierre Dupont',  'partner',  ''),
-  ('u4', 'admin@pwc.com',    'Admin PwC',      'admin',    '');
+CREATE INDEX idx_users_role   ON users(role);
+CREATE INDEX idx_users_status ON users(status);
+
+-- Seed demo users (hashes must be set via application startup)
+INSERT INTO users (id, email, name, first_name, last_name, role, password_hash, phone, position, department) VALUES
+  ('u1', 'auditeur@pwc.com', 'Sophie Aubert', 'Sophie', 'Aubert',  'auditor', '', '+33 6 12 34 56 78', 'Auditrice Senior',   'Audit Financier'),
+  ('u2', 'manager@pwc.com',  'Marc Martin',   'Marc',   'Martin',  'manager', '', '+33 6 23 45 67 89', 'Responsable Audit',  'Audit Financier'),
+  ('u3', 'partner@pwc.com',  'Pierre Dupont', 'Pierre', 'Dupont',  'partner', '', '+33 6 34 56 78 90', 'Associé',            'Direction'),
+  ('u4', 'admin@pwc.com',    'Admin PwC',     'Admin',  'PwC',     'admin',   '', NULL,                'Administrateur',     'IT');
 
 -- ─────────────────────────────────────────────
 -- MISSIONS
@@ -77,6 +87,7 @@ CREATE TABLE missions (
   start_date   DATE NOT NULL,
   end_date     DATE NOT NULL,
   status       mission_status NOT NULL DEFAULT 'active',
+  -- Legacy single-auditor FK kept for backward compat; multi-auditor via mission_assignments
   assigned_to  UUID REFERENCES users(id) ON DELETE SET NULL,
   created_by   UUID NOT NULL REFERENCES users(id),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -89,7 +100,7 @@ CREATE INDEX idx_missions_assigned   ON missions(assigned_to);
 CREATE INDEX idx_missions_created_by ON missions(created_by);
 
 -- ─────────────────────────────────────────────
--- MISSION ASSIGNMENTS (many-to-many for multi-auditor missions)
+-- MISSION ASSIGNMENTS (many-to-many, multi-auditor)
 -- ─────────────────────────────────────────────
 
 CREATE TABLE mission_assignments (
@@ -100,6 +111,9 @@ CREATE TABLE mission_assignments (
   assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (mission_id, user_id)
 );
+
+CREATE INDEX idx_mission_assignments_mission ON mission_assignments(mission_id);
+CREATE INDEX idx_mission_assignments_user    ON mission_assignments(user_id);
 
 -- ─────────────────────────────────────────────
 -- DATASETS
@@ -112,7 +126,7 @@ CREATE TABLE datasets (
   category    dataset_category NOT NULL DEFAULT 'transactions',
   file_size   BIGINT NOT NULL,
   file_type   TEXT NOT NULL,
-  storage_key TEXT,                          -- S3 / filesystem key
+  storage_key TEXT,
   status      dataset_status NOT NULL DEFAULT 'uploaded',
   row_count   INTEGER,
   uploaded_by UUID REFERENCES users(id),
@@ -147,8 +161,8 @@ CREATE TABLE dataset_versions (
 
 CREATE TABLE model_versions (
   id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  model_name       TEXT NOT NULL,               -- 'xgboost', 'autoencoder'
-  version          TEXT NOT NULL,               -- e.g. 'v1.2.0'
+  model_name       TEXT NOT NULL,
+  version          TEXT NOT NULL,
   artifact_path    TEXT NOT NULL,
   recall           FLOAT,
   precision        FLOAT,
@@ -172,13 +186,13 @@ CREATE TABLE analysis_runs (
   mission_id       UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
   dataset_id       UUID REFERENCES datasets(id) ON DELETE SET NULL,
   model_version_id UUID REFERENCES model_versions(id) ON DELETE SET NULL,
-  model_mode       TEXT NOT NULL,               -- 'combined', 'xgboost', 'autoencoder'
+  model_mode       TEXT NOT NULL,
   status           analysis_status NOT NULL DEFAULT 'running',
   n_transactions   INTEGER,
   n_fraud          INTEGER,
   fraud_rate_pct   FLOAT,
   amount_at_risk   FLOAT,
-  result_json      JSONB,                       -- Full PredictResponse stored for replay
+  result_json      JSONB,
   error_message    TEXT,
   started_by       UUID REFERENCES users(id),
   started_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -197,8 +211,8 @@ CREATE TABLE anomaly_reviews (
   id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   analysis_run_id UUID NOT NULL REFERENCES analysis_runs(id) ON DELETE CASCADE,
   tx_id           BIGINT NOT NULL,
-  status          TEXT NOT NULL DEFAULT 'pending',   -- 'pending', 'confirmed', 'dismissed', 'escalated'
-  risk_level      TEXT NOT NULL,                     -- 'CRITIQUE', 'ELEVE', 'FAIBLE'
+  status          TEXT NOT NULL DEFAULT 'pending',
+  risk_level      TEXT NOT NULL,
   reviewed_by     UUID REFERENCES users(id),
   reviewed_at     TIMESTAMPTZ,
   UNIQUE (analysis_run_id, tx_id)
@@ -211,13 +225,13 @@ CREATE INDEX idx_anomaly_reviews_run ON anomaly_reviews(analysis_run_id);
 -- ─────────────────────────────────────────────
 
 CREATE TABLE anomaly_status_history (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  anomaly_id      UUID NOT NULL REFERENCES anomaly_reviews(id) ON DELETE CASCADE,
-  old_status      TEXT,
-  new_status      TEXT NOT NULL,
-  changed_by      UUID NOT NULL REFERENCES users(id),
-  changed_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  reason          TEXT
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  anomaly_id UUID NOT NULL REFERENCES anomaly_reviews(id) ON DELETE CASCADE,
+  old_status TEXT,
+  new_status TEXT NOT NULL,
+  changed_by UUID NOT NULL REFERENCES users(id),
+  changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  reason     TEXT
 );
 
 -- ─────────────────────────────────────────────
@@ -225,12 +239,12 @@ CREATE TABLE anomaly_status_history (
 -- ─────────────────────────────────────────────
 
 CREATE TABLE anomaly_comments (
-  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  anomaly_id      UUID NOT NULL REFERENCES anomaly_reviews(id) ON DELETE CASCADE,
-  author_id       UUID NOT NULL REFERENCES users(id),
-  content         TEXT NOT NULL,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  anomaly_id UUID NOT NULL REFERENCES anomaly_reviews(id) ON DELETE CASCADE,
+  author_id  UUID NOT NULL REFERENCES users(id),
+  content    TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_anomaly_comments_anomaly ON anomaly_comments(anomaly_id);
@@ -245,7 +259,7 @@ CREATE TABLE reports (
   analysis_run_id UUID REFERENCES analysis_runs(id) ON DELETE SET NULL,
   format          TEXT NOT NULL CHECK (format IN ('pdf', 'docx')),
   name            TEXT NOT NULL,
-  storage_key     TEXT,                           -- S3 / filesystem key
+  storage_key     TEXT,
   generated_by    UUID REFERENCES users(id),
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -258,10 +272,10 @@ CREATE TABLE audit_logs (
   id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   action       audit_log_action NOT NULL,
   user_id      UUID REFERENCES users(id) ON DELETE SET NULL,
-  user_name    TEXT NOT NULL,                    -- denormalized for historical records
+  user_name    TEXT NOT NULL,
   user_role    user_role NOT NULL,
   mission_id   UUID REFERENCES missions(id) ON DELETE SET NULL,
-  mission_name TEXT,                             -- denormalized for historical records
+  mission_name TEXT,
   details      TEXT NOT NULL,
   ip_address   INET,
   user_agent   TEXT,
@@ -300,11 +314,26 @@ CREATE TRIGGER trg_anomaly_comments_updated_at
 -- ─────────────────────────────────────────────
 -- ROW-LEVEL SECURITY (RLS) — enable in production
 -- ─────────────────────────────────────────────
-
--- Uncomment after configuring auth.uid() from JWT in pg_session
+--
+-- SET app.user_id = '<uuid>' and app.user_role = 'auditor' before each request
+-- via a PostgreSQL session variable set in the connection middleware.
+--
 -- ALTER TABLE missions ENABLE ROW LEVEL SECURITY;
--- CREATE POLICY missions_auditor ON missions FOR SELECT
---   USING (assigned_to::text = current_setting('app.user_id', true)
---          OR created_by::text = current_setting('app.user_id', true));
--- CREATE POLICY missions_manager ON missions FOR ALL
---   USING (current_setting('app.user_role', true) IN ('manager', 'admin'));
+--
+-- Auditors see only their own assigned missions:
+-- CREATE POLICY missions_auditor_select ON missions FOR SELECT
+--   USING (
+--     assigned_to::text = current_setting('app.user_id', true)
+--     OR id IN (
+--       SELECT mission_id FROM mission_assignments
+--       WHERE user_id::text = current_setting('app.user_id', true)
+--     )
+--   );
+--
+-- Managers and above see all missions:
+-- CREATE POLICY missions_manager_all ON missions FOR ALL
+--   USING (current_setting('app.user_role', true) IN ('manager', 'partner', 'admin'));
+--
+-- ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+-- CREATE POLICY users_admin_only ON users FOR ALL
+--   USING (current_setting('app.user_role', true) = 'admin');

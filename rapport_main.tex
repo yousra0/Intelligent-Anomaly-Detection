@@ -1,0 +1,618 @@
+\documentclass[12pt,a4paper,twoside]{report}
+
+% ======================
+% Packages
+% ======================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{times}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{setspace}
+\setstretch{1.15}
+
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{ragged2e}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, arrows.meta, positioning, calc,
+  backgrounds, fit, decorations.pathreplacing, shadings}
+
+% ======================
+% Couleurs PwC
+% ======================
+\definecolor{pwcorange}{RGB}{208,74,2}
+\definecolor{pwcblack}{RGB}{29,29,27}
+\definecolor{pwcgray}{RGB}{100,100,100}
+\definecolor{crisppink}{RGB}{220,50,120}
+\definecolor{crispamber}{RGB}{255,165,0}
+
+% ======================
+% Pagination
+% ======================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\nouppercase{\leftmark}}
+\fancyfoot[R]{\thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ======================
+% Paragraphes
+% ======================
+\setlength{\parindent}{0.5cm}
+\justifying
+
+% ======================
+% Titres
+% ======================
+\titleformat{\chapter}[hang]{\bfseries\fontsize{16}{18}\selectfont}{\thechapter}{0.2cm}{}
+\titlespacing*{\chapter}{0pt}{12pt}{12pt}
+\titleformat{\section}[hang]{\bfseries\fontsize{14}{16}\selectfont}{\thesection}{0.2cm}{}
+\titlespacing*{\section}{0pt}{10pt}{6pt}
+\titleformat{\subsection}[hang]{\bfseries\fontsize{12}{14}\selectfont}{\thesubsection}{0.2cm}{}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
+
+% ======================
+% Encadré définition
+% ======================
+\newtcolorbox{definitionbox}{
+  colframe=black,
+  colback=gray!5,
+  boxrule=0.6pt,
+  arc=2pt
+}
+
+% ======================
+% Listings
+% ======================
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  captionpos=b,
+  numbers=left,
+  numberstyle=\tiny,
+  xleftmargin=1.5em
+}
+
+% ======================
+% Métadonnées PDF
+% ======================
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+  pdftitle={Détection intelligente d'anomalies financières},
+  pdfauthor={Yousra Chaieb},
+  pdfsubject={Projet de Fin d'Études --- Méthodologie CRISP-DM}
+}
+
+\begin{document}
+
+\pagenumbering{gobble}
+
+% =====================================================
+% PAGE DE GARDE
+% =====================================================
+\begin{titlepage}
+\centering
+
+\vspace{1cm}
+
+{\large \textbf{École Supérieure Privée d'Ingénierie et de Technologies --- ESPRIT}}\\[0.3cm]
+{\large Département Informatique --- Filière Data Science \& IA}
+
+\vspace{1.5cm}
+
+\rule{\linewidth}{0.4pt}\\[0.4cm]
+{\fontsize{24}{28}\selectfont \textbf{Détection intelligente\\[0.2cm]
+d'anomalies financières}}\\[0.4cm]
+\rule{\linewidth}{0.4pt}
+
+\vspace{0.6cm}
+
+{\large \textit{Analyse de transactions, modélisation par apprentissage automatique\\
+et génération d'explications par modèle de langage}}
+
+\vspace{1.5cm}
+
+{\large Rapport de Projet de Fin d'Études}\\[0.2cm]
+{\normalsize Réalisé dans le cadre du cycle ingénieur ---
+Spécialité Intelligence Artificielle}
+
+\vspace{1.5cm}
+
+\begin{tabular}{rl}
+  \textbf{Réalisé par :}           & Yousra Chaieb \\[0.2cm]
+  \textbf{Encadrant académique :}  & Pr. Mohamed Islem Samaali \\[0.2cm]
+  \textbf{Encadrants entreprise :} & Mr. Slim Zribi \& Mme. Hajer \\[0.2cm]
+\end{tabular}
+
+\vfill
+
+{\large Année universitaire : 2025/2026}
+
+\end{titlepage}
+
+\clearpage
+\pagenumbering{roman}
+
+% =====================================================
+% DÉDICACES
+% =====================================================
+\chapter*{Dédicaces}
+\addcontentsline{toc}{chapter}{Dédicaces}
+
+\vspace{3cm}
+
+\begin{center}
+\itshape\large
+
+Je dédie ce modeste travail\\[0.6cm]
+
+À mon père,\\
+source inépuisable de force et de sagesse,\\
+dont le soutien indéfectible m'a porté tout au long de ce chemin.\\[0.6cm]
+
+À ma mère,\\
+pour son amour inconditionnel, sa tendresse et ses prières\\
+qui ont illuminé chacune de mes journées.\\[0.6cm]
+
+À ma chère sœur \textbf{Eya},\\
+pour sa complicité, son encouragement constant\\
+et les moments de joie partagés.\\[0.6cm]
+
+À mes amis,\\
+pour leur présence, leur bonne humeur et leur précieux soutien\\
+tout au long de cette aventure.\\[0.6cm]
+
+À toutes les personnes qui m'ont encouragé et aidé\\
+durant mon stage de fin d'études,\\
+et qui ont contribué, de près ou de loin,\\
+à la réussite de ce projet.
+
+\end{center}
+
+\newpage
+
+% =====================================================
+% REMERCIEMENTS
+% =====================================================
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+Après avoir rendu grâce à \textbf{Dieu}, le Tout-Puissant et le Miséricordieux, qui m'a
+accordé la volonté, la patience et la santé nécessaires pour mener à bien ce projet de
+fin d'études.
+
+\medskip
+
+Je tiens à exprimer ma profonde gratitude à mon encadrant académique,
+\textbf{Mr. Mohamed Islem Samaali}, pour ses conseils avisés, sa disponibilité permanente
+et ses orientations scientifiques qui ont été déterminantes pour structurer ma démarche
+et enrichir mes réflexions tout au long de ce travail.
+
+\medskip
+
+Mes sincères remerciements s'adressent également à mes encadrants en entreprise,
+\textbf{Mr. Slim} et \textbf{Madame Hajer}, pour leur accueil chaleureux, la confiance
+qu'ils m'ont accordée et les précieuses orientations métier qui m'ont permis de mieux
+appréhender les enjeux réels de la détection d'anomalies financières.
+
+\medskip
+
+Je remercie tout particulièrement \textbf{Madame Emna Zanni}, responsable du département
+Audit IT, pour son soutien, sa bienveillance et les ressources qu'elle a mises à ma
+disposition, contribuant ainsi de manière significative à la réussite de ce projet.
+
+\medskip
+
+Enfin, je remercie chaleureusement mes \textbf{camarades de stage} pour les échanges
+enrichissants, la bonne ambiance et l'entraide qui ont rendu cette expérience encore plus
+formatrice et agréable.
+
+\newpage
+
+% =====================================================
+% RÉSUMÉ
+% =====================================================
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Ce projet de fin d'études porte sur la détection intelligente d'anomalies financières à
+partir de données transactionnelles réelles collectées auprès d'un client dans le cadre
+d'une mission d'audit réalisée au sein de \textbf{PwC Tunisie}. Conduit selon la
+méthodologie \textbf{CRISP-DM} (\textit{Cross-Industry Standard Process for Data Mining}),
+il vise à construire une chaîne complète et reproductible allant de la compréhension métier
+et des données jusqu'au déploiement d'un pipeline de détection opérationnel.
+
+Le corpus utilisé comprend environ \textbf{200~000 transactions financières}, dont
+258 opérations frauduleuses (ratio 1:774). La sévérité du déséquilibre des classes
+représente le défi central du projet et justifie l'emploi de stratégies spécifiques
+telles que la pondération des classes, le rééchantillonnage SMOTE et une évaluation
+fondée sur le rappel, la précision et le F1-score plutôt que sur la simple exactitude.
+
+Trois approches de modélisation sont comparées : (1) une \textbf{régression logistique}
+servant de baseline linéaire, (2) une \textbf{forêt aléatoire} constituant la référence
+non-linéaire supervisée, et (3) un \textbf{autoencoder} profond non supervisé entraîné
+exclusivement sur les transactions légitimes.
+
+Afin d'améliorer l'interprétabilité, une double couche explicative a été mise en place :
+les méthodes \textbf{SHAP} et \textbf{LIME} pour identifier les variables les plus
+contributives, et une intégration avec \textbf{Ollama} pour générer des explications
+en langage naturel accessibles aux analystes métier.
+
+\vspace{0.5cm}
+\textbf{Mots-clés :} détection d'anomalies, fraude financière, CRISP-DM, autoencoder,
+forêt aléatoire, SMOTE, SHAP, LIME, Ollama, interprétabilité, PwC Tunisie.
+
+\newpage
+
+% =====================================================
+% ABSTRACT
+% =====================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+This final-year project focuses on intelligent anomaly detection in financial transactions
+using a dataset of real transactional records collected from a client engagement conducted
+within \textbf{PwC Tunisia}. Following the \textbf{CRISP-DM} methodology, the goal is to
+build a complete and reproducible pipeline covering business understanding, data exploration,
+preparation, modeling, evaluation, and deployment.
+
+The dataset comprises approximately \textbf{200,000 financial transactions}, of which only
+258 are fraudulent (ratio 1:774). Three modeling approaches are benchmarked:
+(1) \textbf{logistic regression} as a linear baseline, (2) \textbf{random forest} as a
+robust supervised reference, and (3) a deep \textbf{autoencoder} trained exclusively on
+legitimate transactions. To enhance interpretability, a two-layer explainability stack
+was built: \textbf{SHAP} and \textbf{LIME} methods, and an \textbf{Ollama} integration
+to generate natural-language explanations accessible to business analysts.
+
+\vspace{0.5cm}
+\textbf{Keywords:} anomaly detection, financial fraud, CRISP-DM, autoencoder, random
+forest, SMOTE, SHAP, LIME, Ollama, explainability, PwC Tunisia.
+
+\newpage
+
+% =====================================================
+% TABLE DES MATIÈRES
+% =====================================================
+\tableofcontents
+\newpage
+
+% =====================================================
+% LISTE DES FIGURES
+% =====================================================
+\listoffigures
+\addcontentsline{toc}{chapter}{Liste des figures}
+\newpage
+
+% =====================================================
+% LISTE DES TABLEAUX
+% =====================================================
+\listoftables
+\addcontentsline{toc}{chapter}{Liste des tableaux}
+\newpage
+
+% =====================================================
+% LISTE DES ABRÉVIATIONS
+% =====================================================
+\chapter*{Liste des abréviations}
+\addcontentsline{toc}{chapter}{Liste des abréviations}
+
+\begin{tabular}{ll}
+  \textbf{AE}       & AutoEncoder \\
+  \textbf{AUC}      & Area Under the Curve \\
+  \textbf{BN}       & Batch Normalization \\
+  \textbf{CRISP-DM} & Cross-Industry Standard Process for Data Mining \\
+  \textbf{EDA}      & Exploratory Data Analysis (Analyse Exploratoire des Données) \\
+  \textbf{ERP}      & Enterprise Resource Planning (Progiciel de Gestion Intégré) \\
+  \textbf{F1}       & F1-Score \\
+  \textbf{FN}       & Faux Négatifs \\
+  \textbf{FP}       & Faux Positifs \\
+  \textbf{LLM}      & Large Language Model (Grand Modèle de Langage) \\
+  \textbf{LIME}     & Local Interpretable Model-agnostic Explanations \\
+  \textbf{LR}       & Logistic Regression (Régression Logistique) \\
+  \textbf{ML}       & Machine Learning (Apprentissage Automatique) \\
+  \textbf{MSE}      & Mean Squared Error (Erreur Quadratique Moyenne) \\
+  \textbf{ONG}      & Organisation Non Gouvernementale \\
+  \textbf{PR-AUC}   & Area Under the Precision-Recall Curve \\
+  \textbf{RF}       & Random Forest (Forêt Aléatoire) \\
+  \textbf{RCM}      & Risk \& Control Matrix (Matrice de Risques et de Contrôles) \\
+  \textbf{ROC}      & Receiver Operating Characteristic \\
+  \textbf{SHAP}     & SHapley Additive exPlanations \\
+  \textbf{SMOTE}    & Synthetic Minority Over-sampling Technique \\
+  \textbf{TP}       & Vrais Positifs \\
+  \textbf{TN}       & Vrais Négatifs \\
+  \textbf{VAE}      & Variational AutoEncoder \\
+  \textbf{XAI}      & Explainable Artificial Intelligence \\
+\end{tabular}
+
+\newpage
+\pagenumbering{arabic}
+
+% =====================================================
+% INTRODUCTION GÉNÉRALE
+% =====================================================
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+
+Au cours de mon stage au sein du département Risk Assurance Services de PwC Tunisie,
+j'ai été confrontée à une réalité concrète : dans le cadre d'une mission d'audit IT,
+l'équipe dispose de plusieurs centaines de milliers de lignes transactionnelles à analyser,
+et seule une poignée d'entre elles dissimule une anomalie. Repérer ces cas dans une masse
+de données aussi volumineuse, sans passer à côté d'une fraude ni submerger les auditeurs
+de fausses alertes --- voilà le défi auquel répond ce projet.
+
+Ce travail propose une \textbf{chaîne de traitement complète} pour la détection intelligente
+d'anomalies financières. Développé selon la méthodologie \textbf{CRISP-DM}, il couvre
+l'intégralité du cycle : de la compréhension des besoins métier à la construction d'un
+pipeline de déploiement reproductible, en passant par l'analyse exploratoire des données,
+leur préparation, l'entraînement de plusieurs modèles et leur évaluation rigoureuse.
+
+Deux défis techniques ont structuré l'ensemble de la démarche : (1) la \textbf{gestion
+du déséquilibre extrême} des classes --- moins de 0,13\,\% des transactions sont
+frauduleuses --- et (2) l'\textbf{interprétabilité} des décisions, rendue possible grâce
+aux méthodes SHAP, LIME et à la génération d'explications textuelles par le modèle de
+langage Ollama.
+
+\paragraph{Organisation du rapport :} Ce document est structuré en sept chapitres :
+\begin{itemize}
+  \item Le \textbf{chapitre~1} présente l'organisme d'accueil PwC Tunisie, le cadre du
+    stage et les objectifs du projet.
+  \item Le \textbf{chapitre~2} établit la compréhension métier du problème, la
+    problématique et les critères de succès (phase~1 CRISP-DM).
+  \item Le \textbf{chapitre~3} présente le jeu de données transactionnel et l'analyse
+    exploratoire réalisée (phase~2 CRISP-DM).
+  \item Le \textbf{chapitre~4} détaille les opérations de préparation des données :
+    nettoyage, ingénierie de variables et gestion du déséquilibre (phase~3 CRISP-DM).
+  \item Le \textbf{chapitre~5} décrit les modèles construits : régression logistique,
+    forêt aléatoire et autoencoder (phase~4 CRISP-DM).
+  \item Le \textbf{chapitre~6} présente l'évaluation comparative des modèles et les
+    mécanismes d'explicabilité (phase~5 CRISP-DM).
+  \item Le \textbf{chapitre~7} aborde le déploiement, l'architecture technique et la
+    reproductibilité du pipeline (phase~6 CRISP-DM).
+\end{itemize}
+
+% =====================================================
+% CHAPITRES (inclus depuis chapitres/)
+% =====================================================
+\include{chapitres/ch1_organisme}
+\include{chapitres/ch2_metier}
+\include{chapitres/ch3_donnees}
+\include{chapitres/ch4_preparation}
+\include{chapitres/ch5_modelisation}
+\include{chapitres/ch6_evaluation}
+\include{chapitres/ch7_deploiement}
+
+% =====================================================
+% CONCLUSION GÉNÉRALE
+% =====================================================
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Ce projet de fin d'études a abouti à un résultat concret : une \textbf{chaîne complète de
+détection intelligente d'anomalies financières}, opérationnelle, reproductible et
+expliquable, développée selon la méthodologie CRISP-DM sur des données transactionnelles
+réelles issues d'une mission d'audit IT chez PwC Tunisie.
+
+\paragraph{Récapitulatif de la démarche.} Partant d'un corpus de 200~000 transactions
+financières, le travail a progressé de manière structurée : compréhension des enjeux
+métier, analyse exploratoire approfondie, préparation rigoureuse des données (14 variables,
+séparation étanche des partitions, transformation logarithmique, one-hot encoding),
+entraînement de cinq configurations de modèles, évaluation comparative et mise en place
+d'une double couche d'explicabilité (SHAP/LIME + Ollama).
+
+\paragraph{Réponse à la problématique.} Le pipeline construit répond positivement à la
+problématique initiale : il est \textbf{reproductible} (orchestration via \texttt{run\_all.py},
+graines fixes, versions épinglées), \textbf{efficace} (la forêt aléatoire avec SMOTE
+atteint un F1-score de $\sim$0,80 et un PR-AUC de $\sim$0,84 sur le test, contre
+F1 = 0,0077 pour la baseline), et \textbf{interprétable} (chaque transaction suspecte est
+accompagnée d'une explication en langage naturel via Ollama).
+
+\paragraph{Difficultés et apports techniques.} Trois défis ont retenu l'essentiel de mon
+attention : la gestion du déséquilibre extrême (ratio 1:774), la discipline anti-leakage
+à maintenir tout au long du prétraitement, et la sensibilité du seuil de détection de
+l'autoencoder. Sur le plan personnel, ce projet m'a permis de mettre en œuvre, sur un cas
+réel et contraint, un spectre technique inhabituel pour un projet de fin d'études : machine
+learning supervisé, deep learning, méthodes d'interprétabilité et intégration d'un LLM
+local --- le tout dans un cadre méthodologique rigoureux imposé par le contexte professionnel.
+
+\paragraph{Perspectives.} Ce travail ouvre plusieurs axes de prolongement : l'intégration
+de modèles de gradient boosting (LightGBM, XGBoost), le passage à un autoencoder
+variationnel, le déploiement en temps réel sur un flux de transactions, et l'enrichissement
+de la couche d'explicabilité par des interfaces utilisateur dédiées aux analystes métier.
+
+% =====================================================
+% BIBLIOGRAPHIE
+% =====================================================
+\chapter*{Bibliographie / Netographie}
+\addcontentsline{toc}{chapter}{Bibliographie / Netographie}
+
+\begin{enumerate}
+
+  \item \textbf{Lopez-Rojas, E.~A., Elmir, A., \& Axelsson, S.} (2016). PaySim: A
+    financial mobile money simulator for fraud detection. \textit{The 28th European
+    Modeling and Simulation Symposium (EMSS)}, Larnaca, Cyprus.
+
+  \item \textbf{Chapman, P. et al.} (2000). CRISP-DM 1.0: Step-by-step data mining guide.
+    SPSS Inc.
+
+  \item \textbf{Chawla, N.~V. et al.} (2002). SMOTE: Synthetic minority over-sampling
+    technique. \textit{Journal of Artificial Intelligence Research}, 16, 321--357.
+
+  \item \textbf{Breiman, L.} (2001). Random forests. \textit{Machine Learning}, 45(1),
+    5--32.
+
+  \item \textbf{Hinton, G.~E., \& Salakhutdinov, R.~R.} (2006). Reducing the
+    dimensionality of data with neural networks. \textit{Science}, 313(5786), 504--507.
+
+  \item \textbf{Lundberg, S.~M., \& Lee, S.-I.} (2017). A unified approach to interpreting
+    model predictions. \textit{NeurIPS}, 30.
+
+  \item \textbf{Ribeiro, M.~T., Singh, S., \& Guestrin, C.} (2016). Why should I trust
+    you? Explaining the predictions of any classifier. \textit{KDD 2016}, pp.~1135--1144.
+
+  \item \textbf{Pedregosa, F. et al.} (2011). Scikit-learn: Machine Learning in Python.
+    \textit{JMLR}, 12, 2825--2830. \url{https://scikit-learn.org/stable/}
+
+  \item \textbf{Lemaître, G., Nogueira, F., \& Aridas, C.~K.} (2017). Imbalanced-learn.
+    \textit{JMLR}, 18(17), 1--5. \url{https://imbalanced-learn.org/stable/}
+
+  \item \textbf{Lundberg, S.~M.} Documentation officielle SHAP.
+    \url{https://shap.readthedocs.io/}
+
+  \item \textbf{Ribeiro, M.~T.} Documentation officielle LIME.
+    \url{https://lime-ml.readthedocs.io/}
+
+  \item \textbf{Ollama Inc.} Documentation officielle Ollama.
+    \url{https://ollama.com/}
+
+  \item \textbf{Chaieb, Y.} \textit{Intelligent Anomaly Detection} --- Dépôt GitHub
+    du projet. PwC Tunisie / ESPRIT, 2026.
+    \url{https://github.com/yousra0/Intelligent-Anomaly-Detection}
+
+  \item \textbf{Auteur non spécifié.} La méthodologie CRISP-DM : présentation des six
+    phases. Le1817.com. \url{https://www.le1817.com/blog/la-methodologie-crisp-dm}
+
+\end{enumerate}
+
+% =====================================================
+% ANNEXES
+% =====================================================
+\appendix
+
+\chapter{Hyperparamètres détaillés des modèles}
+
+\section{Régression logistique}
+
+\begin{lstlisting}[caption={Hyperparamètres LR (src/models/ml\_models.py)}]
+LR_DEFAULTS = {
+    "C":             0.1,
+    "max_iter":      1000,
+    "solver":        "lbfgs",
+    "class_weight":  "balanced",
+    "random_state":  42,
+    "n_jobs":        -1,
+}
+\end{lstlisting}
+
+\section{Forêt aléatoire}
+
+\begin{lstlisting}[caption={Hyperparamètres RF (src/models/ml\_models.py)}]
+RF_DEFAULTS = {
+    "n_estimators":    300,
+    "max_depth":       10,
+    "min_samples_leaf": 5,
+    "class_weight":    "balanced",
+    "random_state":    42,
+    "n_jobs":          -1,
+}
+\end{lstlisting}
+
+\section{Autoencoder}
+
+\begin{lstlisting}[caption={Hyperparamètres AE (src/models/autoencoder.py)}]
+AE_DEFAULTS = {
+    "encoder_dims":         [10, 7],
+    "bottleneck_dim":       4,
+    "decoder_dims":         [7, 10],
+    "activation":           "relu",
+    "output_activation":    "linear",
+    "dropout_rate":         0.2,
+    "use_batch_norm":       True,
+    "l2_reg":               1e-5,
+    "epochs":               100,
+    "batch_size":           256,
+    "learning_rate":        1e-3,
+    "patience":             10,
+    "val_split":            0.1,
+    "threshold_percentile": 95,
+}
+\end{lstlisting}
+
+\chapter{Pipeline de préparation --- variables}
+
+\section{Variables normalisées (StandardScaler)}
+
+\begin{lstlisting}
+SCALE_COLS = [
+    "step", "hour", "day", "week",
+    "log_amount", "balance_diff_orig"
+]
+\end{lstlisting}
+
+\section{Variables binaires (pas de normalisation)}
+
+\begin{lstlisting}
+BINARY_COLS = [
+    "high_risk_hour",
+    "is_transfer_or_cashout",
+    "dest_zero_balance"
+]
+\end{lstlisting}
+
+\section{Variables one-hot (type de transaction)}
+
+\begin{lstlisting}
+TYPE_COLS = [
+    "type_CASH_IN", "type_CASH_OUT", "type_DEBIT",
+    "type_PAYMENT", "type_TRANSFER"
+]
+\end{lstlisting}
+
+\chapter{Planning de réalisation}
+
+\begin{table}[H]
+\centering
+\caption{Planning de réalisation du projet de fin d'études}
+\label{tab:planning}
+\begin{tabular}{lll}
+\toprule
+\textbf{Phase CRISP-DM} & \textbf{Activités principales} & \textbf{Durée} \\
+\midrule
+Compréhension métier    & Analyse des besoins, définition des objectifs & Semaine 1 \\
+Compréhension données   & EDA, notebook 01, analyse qualité & Semaines 2--3 \\
+Préparation données     & Feature engineering, split, normalisation & Semaines 3--4 \\
+Modélisation            & LR, RF, Autoencoder, réglage seuils & Semaines 5--7 \\
+Évaluation              & Métriques, SHAP, LIME, Ollama & Semaines 7--9 \\
+Déploiement             & Pipeline, tests, documentation & Semaines 9--10 \\
+Rédaction du rapport    & Rédaction, révision, mise en forme & Semaines 8--12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\chapter{Exemple d'explication générée par Ollama}
+
+\begin{lstlisting}[caption={Exemple d'explication pour une transaction suspecte}]
+Transaction ID : TXN_00123
+Montant : 245 000 | Type : TRANSFER | Heure : 03h00
+
+Cette transaction est signalee comme suspecte pour les raisons suivantes :
+1. Type TRANSFER : seul type associe a des fraudes dans le corpus d'audit.
+2. Heure 3h00 : heure a risque eleve (ratio fraude 10x superieur a la
+   moyenne horaire).
+3. Difference de solde emetteur (balance_diff_orig = 245 000) anormalement
+   elevee, coherente avec un virement frauduleux.
+4. Score de reconstruction AE (MSE = 1.87) superieur au seuil (theta = 1.67)
+   : pattern inhabituel non reconnu par le modele.
+
+Recommandation : Soumettre a une verification manuelle par un auditeur.
+\end{lstlisting}
+
+\end{document}

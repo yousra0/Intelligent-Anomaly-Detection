@@ -149,7 +149,7 @@ export function ReportSection() {
             {reports.map((r) => (
               <div
                 key={r.format}
-                className="flex items-center justify-between rounded-lg border bg-white p-3"
+                className="flex items-center justify-between rounded-lg border bg-card p-3"
               >
                 <div className="flex items-center gap-3">
                   {r.format === "pdf" ? (

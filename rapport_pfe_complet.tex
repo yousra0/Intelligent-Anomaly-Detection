@@ -1,0 +1,1608 @@
+\documentclass[12pt,a4paper,twoside]{report}
+
+% ======================
+% Packages
+% ======================
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{times}
+\usepackage{geometry}
+\geometry{margin=2.5cm}
+\usepackage{setspace}
+\setstretch{1.15}
+
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{ragged2e}
+\usepackage{tcolorbox}
+\usepackage{hyperref}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows, arrows.meta, positioning, calc, backgrounds, fit, decorations.pathreplacing, shadings}
+
+\definecolor{pwcorange}{RGB}{208,74,2}
+\definecolor{pwcblack}{RGB}{29,29,27}
+\definecolor{pwcgray}{RGB}{100,100,100}
+\definecolor{deloitte}{RGB}{134,188,37}
+\definecolor{ey}{RGB}{255,230,0}
+\definecolor{kpmg}{RGB}{0,49,141}
+\definecolor{crisppink}{RGB}{220,50,120}
+\definecolor{crispamber}{RGB}{255,165,0}
+\definecolor{nextblue}{RGB}{0,112,243}
+\definecolor{fastgreen}{RGB}{0,150,109}
+\definecolor{postgray}{RGB}{51,103,145}
+
+% ======================
+% Pagination
+% ======================
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\nouppercase{\leftmark}}
+\fancyfoot[R]{\thepage/\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\setlength{\parindent}{0.5cm}
+\justifying
+
+\titleformat{\chapter}[hang]{\bfseries\fontsize{16}{18}\selectfont}{\thechapter}{0.2cm}{}
+\titlespacing*{\chapter}{0pt}{12pt}{12pt}
+\titleformat{\section}[hang]{\bfseries\fontsize{14}{16}\selectfont}{\thesection}{0.2cm}{}
+\titlespacing*{\section}{0pt}{10pt}{6pt}
+\titleformat{\subsection}[hang]{\bfseries\fontsize{12}{14}\selectfont}{\thesubsection}{0.2cm}{}
+\titlespacing*{\subsection}{0pt}{8pt}{4pt}
+
+\newtcolorbox{definitionbox}{
+  colframe=black,
+  colback=gray!5,
+  boxrule=0.6pt,
+  arc=2pt
+}
+
+\newtcolorbox{techbox}{
+  colframe=pwcorange,
+  colback=pwcorange!5,
+  boxrule=0.8pt,
+  arc=4pt
+}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black,
+  pdftitle={Détection intelligente d'anomalies financières},
+  pdfauthor={Yousra Chaieb},
+  pdfsubject={Projet de Fin d'Études --- Méthodologie CRISP-DM}
+}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  captionpos=b,
+  numbers=left,
+  numberstyle=\tiny,
+  xleftmargin=1.5em
+}
+
+\begin{document}
+
+\pagenumbering{gobble}
+
+% =====================================================
+% PAGE DE GARDE
+% =====================================================
+\begin{titlepage}
+\centering
+
+\vspace{1cm}
+
+{\large \textbf{École Supérieure Privée d'Ingénierie et de Technologies --- ESPRIT}}\\[0.3cm]
+{\large Département Informatique --- Filière Data Science \& IA}
+
+\vspace{1.5cm}
+
+\rule{\linewidth}{0.4pt}\\[0.4cm]
+{\fontsize{24}{28}\selectfont \textbf{Détection intelligente\\[0.2cm] d'anomalies financières}}\\[0.4cm]
+\rule{\linewidth}{0.4pt}
+
+\vspace{0.6cm}
+
+{\large \textit{Analyse de transactions, modélisation par apprentissage automatique,\\génération d'explications par LLM et déploiement full-stack}}
+
+\vspace{1.5cm}
+
+{\large Rapport de Projet de Fin d'Études}\\[0.2cm]
+{\normalsize Réalisé dans le cadre du cycle ingénieur --- Spécialité Intelligence Artificielle}
+
+\vspace{1.5cm}
+
+\begin{tabular}{rl}
+  \textbf{Réalisée par :}          & Yousra Chaieb \\[0.2cm]
+  \textbf{Encadrant académique :}  & Pr. Mohamed Islem Samaali \\[0.2cm]
+  \textbf{Encadrants entreprise :} & Mr. Slim Zribi \& Mme. Hajer \\[0.2cm]
+\end{tabular}
+
+\vfill
+
+{\large Année universitaire : 2025/2026}
+
+\end{titlepage}
+
+\clearpage
+\pagenumbering{roman}
+
+% =====================================================
+% DEDICACES
+% =====================================================
+\chapter*{Dédicaces}
+\addcontentsline{toc}{chapter}{Dédicaces}
+
+\vspace{3cm}
+
+\begin{center}
+\itshape\large
+
+Je dédie ce modeste travail\\[0.6cm]
+
+À mon père,\\
+source inépuisable de force et de sagesse,\\
+dont le soutien indéfectible m'a porté tout au long de ce chemin.\\[0.6cm]
+
+À ma mère,\\
+pour son amour inconditionnel, sa tendresse et ses prières\\
+qui ont illuminé chacune de mes journées.\\[0.6cm]
+
+À ma chère sœur \textbf{Eya},\\
+pour sa complicité, son encouragement constant\\
+et les moments de joie partagés.\\[0.6cm]
+
+À mes amis,\\
+pour leur présence, leur bonne humeur et leur précieux soutien\\
+tout au long de cette aventure.\\[0.6cm]
+
+À toutes les personnes qui m'ont encouragée et aidée\\
+durant mon stage de fin d'études,\\
+et qui ont contribué, de près ou de loin,\\
+à la réussite de ce projet.
+
+\end{center}
+
+\newpage
+
+% =====================================================
+% REMERCIEMENTS
+% =====================================================
+\chapter*{Remerciements}
+\addcontentsline{toc}{chapter}{Remerciements}
+
+Après avoir rendu grâce à \textbf{Dieu}, le Tout-Puissant et le Miséricordieux, qui m'a accordé la volonté, la patience et la santé nécessaires pour mener à bien ce projet de fin d'études.
+
+\medskip
+
+Je tiens à exprimer ma profonde gratitude à mon encadrant académique, \textbf{Mr. Mohamed Islem Samaali}, pour ses conseils avisés, sa disponibilité permanente et ses orientations scientifiques qui ont été déterminantes pour structurer ma démarche et enrichir mes réflexions tout au long de ce travail.
+
+\medskip
+
+Mes sincères remerciements s'adressent également à mes encadrants en entreprise, \textbf{Mr. Slim} et \textbf{Madame Hajer}, pour leur accueil chaleureux, la confiance qu'ils m'ont accordée et les précieuses orientations métier qui m'ont permis de mieux appréhender les enjeux réels de la détection d'anomalies financières.
+
+\medskip
+
+Je remercie tout particulièrement \textbf{Madame Emna Zanni}, responsable du département Audit IT, pour son soutien, sa bienveillance et les ressources qu'elle a mises à ma disposition, contribuant ainsi de manière significative à la réussite de ce projet.
+
+\medskip
+
+Enfin, je remercie chaleureusement mes \textbf{camarades de stage} pour les échanges enrichissants, la bonne ambiance et l'entraide qui ont rendu cette expérience encore plus formatrice et agréable.
+
+\newpage
+
+% =====================================================
+% RESUME
+% =====================================================
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+Ce projet de fin d'études porte sur la détection intelligente d'anomalies financières à partir de données transactionnelles réelles collectées dans le cadre d'une mission d'audit réalisée au sein de \textbf{PwC Tunisie}. Conduit selon la méthodologie \textbf{CRISP-DM} (\textit{Cross-Industry Standard Process for Data Mining}), il vise à construire une chaîne complète et reproductible allant de la compréhension métier jusqu'au déploiement d'une plateforme analytique opérationnelle.
+
+Le corpus utilisé comprend environ \textbf{200~000 transactions financières}, dont 258 opérations frauduleuses (ratio 1:774). Trois approches de modélisation sont comparées : une \textbf{régression logistique} (baseline linéaire), une \textbf{forêt aléatoire} (référence non-linéaire supervisée), et un \textbf{autoencoder} profond non supervisé. La meilleure configuration, la forêt aléatoire avec SMOTE, atteint un F1-score de \textbf{0,80} et un PR-AUC de \textbf{0,84} sur le jeu de test.
+
+Une double couche d'explicabilité a été mise en place via les méthodes \textbf{SHAP} et \textbf{LIME}, complétée par une intégration avec \textbf{Ollama} pour la génération d'explications en langage naturel. L'ensemble de ces composants a été encapsulé dans une \textbf{plateforme web complète} : un backend \textbf{FastAPI} exposant des API REST de prédiction, d'explicabilité et de génération de rapports, et un frontend \textbf{Next.js} offrant aux auditeurs un tableau de bord interactif de gestion de missions, d'analyse et de génération de rapports PDF.
+
+\vspace{0.5cm}
+\textbf{Mots-clés :} détection d'anomalies, fraude financière, CRISP-DM, autoencoder, forêt aléatoire, SMOTE, SHAP, LIME, Ollama, FastAPI, Next.js, PwC Tunisie.
+
+\newpage
+
+% =====================================================
+% ABSTRACT
+% =====================================================
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+This final-year project focuses on intelligent anomaly detection in financial transactions using a dataset of real transactional records collected from a client engagement conducted within \textbf{PwC Tunisia}. Following the \textbf{CRISP-DM} methodology, the goal is to build a complete and reproducible pipeline covering business understanding, data exploration, preparation, modelling, evaluation, and deployment of a full operational platform.
+
+The dataset comprises approximately \textbf{200,000 financial transactions}, of which only 258 are fraudulent (ratio 1:774). Three modelling approaches are benchmarked: logistic regression, random forest, and a deep autoencoder trained exclusively on legitimate transactions. The best configuration, random forest with SMOTE, achieves an F1-score of \textbf{0.80} and a PR-AUC of \textbf{0.84} on the test set.
+
+A two-layer explainability stack was built using \textbf{SHAP} and \textbf{LIME}, supplemented by an \textbf{Ollama} integration for natural-language explanations. All components were assembled into a \textbf{full-stack web platform}: a \textbf{FastAPI} backend exposing REST APIs for prediction, explainability, and report generation, and a \textbf{Next.js} frontend providing auditors with an interactive dashboard for mission management, fraud analysis, and PDF report generation.
+
+\vspace{0.5cm}
+\textbf{Keywords:} anomaly detection, financial fraud, CRISP-DM, autoencoder, random forest, SMOTE, SHAP, LIME, Ollama, FastAPI, Next.js, PwC Tunisia.
+
+\newpage
+
+% =====================================================
+% TABLE DES MATIERES
+% =====================================================
+\tableofcontents
+\newpage
+
+% =====================================================
+% LISTE DES ABRÉVIATIONS
+% =====================================================
+\chapter*{Liste des abréviations}
+\addcontentsline{toc}{chapter}{Liste des abréviations}
+
+\begin{tabular}{ll}
+  \textbf{AE}       & AutoEncoder \\
+  \textbf{API}      & Application Programming Interface \\
+  \textbf{AUC}      & Area Under the Curve \\
+  \textbf{BN}       & Batch Normalization \\
+  \textbf{CORS}     & Cross-Origin Resource Sharing \\
+  \textbf{CRISP-DM} & Cross-Industry Standard Process for Data Mining \\
+  \textbf{EDA}      & Exploratory Data Analysis (Analyse Exploratoire des Données) \\
+  \textbf{ERP}      & Enterprise Resource Planning (Progiciel de Gestion Intégré) \\
+  \textbf{F1}       & F1-Score \\
+  \textbf{JWT}      & JSON Web Token \\
+  \textbf{LLM}      & Large Language Model (Grand Modèle de Langage) \\
+  \textbf{LIME}     & Local Interpretable Model-agnostic Explanations \\
+  \textbf{LR}       & Logistic Regression (Régression Logistique) \\
+  \textbf{ML}       & Machine Learning (Apprentissage Automatique) \\
+  \textbf{MSE}      & Mean Squared Error (Erreur Quadratique Moyenne) \\
+  \textbf{ORM}      & Object-Relational Mapping \\
+  \textbf{PDF}      & Portable Document Format \\
+  \textbf{PR-AUC}   & Area Under the Precision-Recall Curve \\
+  \textbf{RF}       & Random Forest (Forêt Aléatoire) \\
+  \textbf{ROC}      & Receiver Operating Characteristic \\
+  \textbf{RCM}      & Risk \& Control Matrix (Matrice de Risques et de Contrôles) \\
+  \textbf{REST}     & Representational State Transfer \\
+  \textbf{SHAP}     & SHapley Additive exPlanations \\
+  \textbf{SMOTE}    & Synthetic Minority Over-sampling Technique \\
+  \textbf{SQL}      & Structured Query Language \\
+  \textbf{XAI}      & Explainable Artificial Intelligence \\
+\end{tabular}
+
+\newpage
+
+\pagenumbering{arabic}
+
+% =====================================================
+% INTRODUCTION GENERALE
+% =====================================================
+\chapter*{Introduction générale}
+\addcontentsline{toc}{chapter}{Introduction générale}
+
+Au cours de mon stage au sein du département Risk Assurance Services de \textbf{PwC Tunisie}, j'ai été confrontée à une réalité concrète : dans le cadre d'une mission d'audit IT, l'équipe dispose de plusieurs centaines de milliers de lignes transactionnelles à analyser, et seule une poignée d'entre elles dissimule une anomalie. Repérer ces cas dans une masse de données aussi volumineuse, sans passer à côté d'une fraude ni submerger les auditeurs de fausses alertes --- voilà le défi auquel répond ce projet.
+
+Ce travail propose une \textbf{chaîne de traitement complète} pour la détection intelligente d'anomalies financières. Développé selon la méthodologie \textbf{CRISP-DM}, il couvre l'intégralité du cycle : de la compréhension des besoins métier à la construction d'une plateforme analytique déployable, en passant par l'analyse exploratoire des données, leur préparation, l'entraînement de plusieurs modèles, leur évaluation rigoureuse, et enfin le développement d'une interface web permettant aux auditeurs d'utiliser concrètement les modèles développés.
+
+Deux défis techniques ont structuré l'ensemble de la démarche : (1) la \textbf{gestion du déséquilibre extrême} des classes --- moins de 0,13\,\% des transactions sont frauduleuses --- et (2) l'\textbf{interprétabilité} des décisions, rendue possible grâce aux méthodes SHAP, LIME et à la génération d'explications textuelles par le modèle de langage Ollama. À ces deux défis s'ajoute la dimension \textbf{déploiement} : les modèles doivent être accessibles via une interface web robuste utilisable par des auditeurs non-techniciens.
+
+\paragraph{Organisation du rapport :} Ce document est structuré en sept chapitres :
+\begin{itemize}
+  \item Le \textbf{chapitre~1} présente l'organisme d'accueil PwC Tunisie, le cadre du stage et les objectifs du projet.
+  \item Le \textbf{chapitre~2} établit la compréhension métier du problème, la problématique et les critères de succès, selon la première phase CRISP-DM.
+  \item Le \textbf{chapitre~3} présente le jeu de données transactionnel et l'analyse exploratoire réalisée (\texttt{01\_data\_understanding.ipynb}).
+  \item Le \textbf{chapitre~4} détaille les opérations de préparation des données : nettoyage, ingénierie de variables et gestion du déséquilibre (\texttt{02\_data\_preparation.ipynb}).
+  \item Le \textbf{chapitre~5} décrit les modèles construits : régression logistique, forêt aléatoire et autoencoder (\texttt{03\_baseline\_models.ipynb}, \texttt{04\_autoencoder.ipynb}).
+  \item Le \textbf{chapitre~6} présente l'évaluation comparative des modèles et les mécanismes d'explicabilité : SHAP, LIME, Ollama (\texttt{05\_shap\_lime.ipynb}, \texttt{06\_llm\_integration.ipynb}).
+  \item Le \textbf{chapitre~7} aborde le déploiement complet : architecture du pipeline de reproduction, backend FastAPI et plateforme frontend Next.js.
+\end{itemize}
+
+% =====================================================
+% CHAPITRE 1 : PRESENTATION DE L'ORGANISME D'ACCUEIL
+% =====================================================
+\chapter{Présentation de l'organisme d'accueil}
+
+\section*{Introduction}
+\addcontentsline{toc}{section}{Introduction}
+
+Ce chapitre présente l'organisme d'accueil ainsi que les missions confiées dans le cadre de ce stage. Nous présenterons la multinationale \textbf{PwC} et son positionnement à l'échelle mondiale, puis les spécificités du département \textbf{Risk Assurance Services} et de sa cellule \textbf{Audit IT}, cadre opérationnel dans lequel s'inscrit ce projet de détection d'anomalies financières.
+
+\section{PwC à l'échelle internationale}
+
+PwC est un réseau mondial de cabinets de services professionnels couvrant l'audit, le conseil, la fiscalité et les transactions. Sa clientèle est très diversifiée : grands groupes internationaux cotés, PME en pleine croissance, institutions publiques et organisations à but non lucratif. L'innovation technologique, notamment l'intelligence artificielle et l'analytique des données, occupe une place croissante dans les offres du cabinet.
+
+\subsection{Historique}
+
+PwC est né en 1998 de la fusion de deux cabinets alors centenaires : \textit{Price Waterhouse}, fondé à Londres en 1849, et \textit{Coopers \& Lybrand}, dont les origines remontent à 1854. L'entité fusionnée a adopté en septembre 2010 son identité actuelle abrégée « PwC ». Aujourd'hui présent dans plus de 187 pays avec 771 bureaux et 364~000 collaborateurs, le réseau se positionne comme le premier cabinet mondial d'audit et de conseil, devant Deloitte, EY et KPMG.
+
+\subsection{Fiche signalétique de PwC International}
+
+\begin{table}[H]
+\centering
+\caption{Fiche signalétique de PwC International}
+\label{tab:fiche_pwc_intl}
+\begin{tabular}{ll}
+\toprule
+\textbf{Critère}     & \textbf{Information} \\
+\midrule
+Dénomination         & PricewaterhouseCoopers (PwC) \\
+Date de création     & 1998 (fusion Price Waterhouse \& Coopers \& Lybrand) \\
+Siège social         & Londres, Royaume-Uni \\
+Secteur d'activité   & Audit, Conseil, Fiscalité, Transactions \\
+Nombre de pays       & Plus de 187 \\
+Effectif mondial     & Plus de 364~000 collaborateurs \\
+Appartenance         & Big Four de l'audit \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Stratégie mondiale : The New Equation}
+
+Pour anticiper les évolutions du secteur, PwC a structuré sa stratégie globale autour du programme \textbf{« The New Equation »}, articulé autour de deux axes : \textbf{Building Trust} (confiance dans l'audit, la fiscalité et la cybersécurité, enrichie par l'IA) et \textbf{Sustained Outcomes} (accompagnement durable à travers stratégie, numérique, fiscalité et conformité réglementaire).
+
+\section{PwC Tunisie}
+
+Fondée en 1983, PwC Tunisie s'impose comme l'une des premières sociétés tunisiennes dans le domaine de l'audit et du conseil, forte de plus de quarante années d'expérience. Elle propose une gamme étendue de services adaptés au marché tunisien, couvrant aussi bien les besoins des institutions publiques que ceux des entreprises privées.
+
+\begin{table}[H]
+\centering
+\caption{Fiche signalétique de PwC Tunisie}
+\label{tab:fiche_pwc_tunisie}
+\begin{tabular}{ll}
+\toprule
+\textbf{Critère}     & \textbf{Information} \\
+\midrule
+Dénomination         & PricewaterhouseCoopers Tunisie \\
+Date de création     & 1983 \\
+Siège social         & Tunis, Tunisie \\
+Secteur d'activité   & Audit, Conseil, Fiscalité, Transactions \\
+Domaines             & Secteur public, Privé, ONG, Bailleurs de fonds \\
+Appartenance         & Réseau PwC International \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Département Risk Assurance Services et Cellule Audit IT}
+
+Le département \textbf{Risk Assurance Services} est le pôle au sein duquel ce stage a été réalisé. Sa mission : aider les organisations clientes à identifier et cartographier leurs risques opérationnels et systémiques, puis à mettre en place les dispositifs de contrôle appropriés.
+
+Au cœur de ce département, la cellule \textbf{Audit IT} se consacre à l'examen des systèmes d'information qui alimentent la comptabilité et les états financiers des clients : ERP, systèmes de gestion de trésorerie, plateformes de paiement. C'est précisément dans ce cadre opérationnel que les données de ce projet ont été collectées : un corpus de transactions financières extraites du système d'information d'un client de PwC Tunisie dans le cadre d'une mission d'audit IT active.
+
+\section{Cadre du stage et objectifs}
+
+Les missions confiées dans le cadre de ce stage couvrent l'intégralité du cycle CRISP-DM :
+
+\begin{itemize}
+  \item Analyse exploratoire du corpus de transactions réelles ($\approx$200~000 opérations, ratio fraude 1:774)
+  \item Conception et implémentation d'un pipeline de préparation des données (nettoyage, ingénierie de variables, gestion du déséquilibre via SMOTE)
+  \item Développement et comparaison de trois approches de modélisation : régression logistique, forêt aléatoire et autoencoder non supervisé
+  \item Mise en place d'une couche d'explicabilité double : SHAP, LIME et génération d'explications via \textbf{Ollama}
+  \item Déploiement d'une plateforme web complète : backend \textbf{FastAPI} et frontend \textbf{Next.js}
+\end{itemize}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+Ce premier chapitre a établi le cadre institutionnel et organisationnel dans lequel s'inscrit ce projet. La problématique identifiée --- détecter automatiquement les transactions frauduleuses dans un corpus réel fortement déséquilibré, tout en garantissant l'interprétabilité des résultats et en délivrant une plateforme opérationnelle --- pose les bases nécessaires à la compréhension des enjeux du projet. Le chapitre suivant formalise la compréhension métier, première phase CRISP-DM.
+
+% =====================================================
+% CHAPITRE 2 : COMPREHENSION METIER (CRISP-DM Phase 1)
+% =====================================================
+\chapter{Compréhension métier}
+
+\section{Introduction}
+
+Avant d'écrire la moindre ligne de code, il faut comprendre le problème que l'on cherche à résoudre et le métier derrière les données. C'est l'essence de la première phase CRISP-DM. Ce chapitre pose le cadre : contexte de la fraude financière telle qu'on la rencontre en mission d'audit, formalisation de la problématique, objectifs opérationnels et critères de succès mesurables.
+
+\section{Contexte de la détection de fraude financière}
+
+\subsection{Enjeux économiques et opérationnels}
+
+La fraude financière représente une menace persistante et coûteuse pour les institutions. Pour une équipe comme celle du Risk Assurance Services de PwC Tunisie, l'enjeu est double : détecter les anomalies avant qu'elles ne se propagent, et le faire de manière traçable et défendable dans un rapport d'audit. À cela s'ajoutent des contraintes réglementaires croissantes (directive européenne PSD2) imposant des mécanismes de surveillance renforcés.
+
+\subsection{Limites des systèmes basés sur des règles}
+
+Historiquement, la détection de fraude repose sur des règles métier définies manuellement. Ces systèmes ont le mérite d'être explicables, mais leur analyse lors du stage a mis en évidence leurs limites : le système naïf \texttt{isFlaggedFraud} présent dans les données n'identifie qu'un seul cas de fraude sur 258, soit un rappel de \textbf{0,39\,\%}. Trois limites fondamentales expliquent cet échec : (1) la rigidité face à des fraudeurs qui adaptent continuellement leurs méthodes, (2) la maintenance coûteuse à chaque nouvelle forme de fraude, et (3) les faux positifs élevés générés par les seuils statiques.
+
+\section{Problématique et objectifs}
+
+\begin{definitionbox}
+\textbf{Problématique :} Comment concevoir un pipeline reproductible, fondé sur la méthodologie CRISP-DM, capable de détecter efficacement les transactions financières frauduleuses dans un contexte de fort déséquilibre des classes, tout en produisant des explications compréhensibles pour les analystes métier et en délivrant une plateforme web opérationnelle pour les équipes d'audit ?
+\end{definitionbox}
+
+Les objectifs opérationnels définis en début de projet sont :
+
+\begin{enumerate}
+  \item Construire une \textbf{chaîne de traitement complète et reproductible} couvrant toutes les phases CRISP-DM.
+  \item Réaliser une \textbf{analyse exploratoire approfondie} des données transactionnelles.
+  \item Concevoir un \textbf{pipeline de préparation robuste} préservant l'intégrité temporelle et évitant le \textit{data leakage}.
+  \item \textbf{Entraîner et comparer} trois approches de détection : baseline linéaire, modèle ensembliste supervisé et autoencoder non supervisé.
+  \item Évaluer avec des \textbf{métriques adaptées au déséquilibre} : rappel, F1-score, PR-AUC.
+  \item Produire des \textbf{explications interprétables} (SHAP, LIME, Ollama).
+  \item Déployer une \textbf{plateforme web} accessible aux auditeurs non-techniciens via un backend FastAPI et un frontend Next.js.
+\end{enumerate}
+
+\begin{table}[H]
+\centering
+\caption{Critères de succès du projet}
+\label{tab:criteres_succes}
+\begin{tabular}{lll}
+\toprule
+\textbf{Critère}       & \textbf{Valeur cible} & \textbf{Justification} \\
+\midrule
+Recall (test)          & $> 0.70$ & Priorité à la détection des fraudes \\
+F1-score (test)        & $> 0.70$ & Équilibre précision/rappel \\
+PR-AUC (test)          & $> 0.75$ & Synthèse du tradeoff \\
+Reproductibilité       & 100\,\%  & Pipeline exécutable via \texttt{run\_all.py} \\
+Plateforme fonctionnelle & 100\,\% & API REST + interface web opérationnels \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Cadre méthodologique : CRISP-DM}
+
+\begin{definitionbox}
+\textbf{CRISP-DM} (\textit{Cross-Industry Standard Process for Data Mining}) est un cadre méthodologique ouvert proposé en 1996 par un consortium réunissant SPSS, Daimler-Benz, NCR et OHRA. Il organise le travail en \textbf{six phases interdépendantes} formant un cycle itératif, du cadrage métier jusqu'à la mise en production.
+\end{definitionbox}
+
+Les six phases de CRISP-DM sont :
+
+\begin{enumerate}
+  \item \textbf{Business Understanding} --- Compréhension métier et définition des objectifs.
+  \item \textbf{Data Understanding} --- Collecte, exploration et évaluation de la qualité des données.
+  \item \textbf{Data Preparation} --- Sélection, nettoyage, construction et formatage des données.
+  \item \textbf{Modeling} --- Sélection, construction et ajustement des modèles.
+  \item \textbf{Evaluation} --- Évaluation des résultats au regard des objectifs métier.
+  \item \textbf{Deployment} --- Mise en production et documentation.
+\end{enumerate}
+
+Le choix de CRISP-DM pour ce projet repose sur son orientation métier explicite (avant de toucher aux données, la définition du rappel cible à 0,70 a imposé une discussion sur l'impact réel d'une fraude manquée), sa couverture complète du cycle, son caractère itératif (des allers-retours entre préparation des données et modélisation ont été nécessaires) et son indépendance vis-à-vis des outils (compatible avec la stack Python/Scikit-learn/Ollama/FastAPI/Next.js utilisée).
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+Ce chapitre a établi le contexte métier, la problématique et les critères de succès selon le cadre CRISP-DM. La gestion du déséquilibre des classes et l'interprétabilité des décisions constituent les deux défis techniques principaux. Le chapitre suivant présente le jeu de données et l'analyse exploratoire.
+
+% =====================================================
+% CHAPITRE 3 : COMPREHENSION DES DONNEES (CRISP-DM Phase 2)
+% =====================================================
+\chapter{Compréhension des données}
+
+\section{Introduction}
+
+La phase de compréhension des données constitue le socle de tout projet de data science. Elle permet d'identifier les caractéristiques du jeu de données, ses limites et ses opportunités, et d'orienter les choix de préparation et de modélisation. Cette phase correspond au notebook \texttt{01\_business\_understanding.ipynb} et \texttt{02\_data\_understanding.ipynb} du projet.
+
+\section{Présentation du jeu de données}
+
+\subsection{Origine et description}
+
+Le jeu de données utilisé dans ce projet provient d'une \textbf{mission d'audit IT réalisée au sein de PwC Tunisie}. Il regroupe des transactions financières issues du système d'information d'un client. Pour des raisons de confidentialité, toutes les informations permettant d'identifier les parties ont été anonymisées. Le jeu de données présente les caractéristiques générales suivantes :
+
+\begin{table}[H]
+\centering
+\caption{Caractéristiques générales du jeu de données}
+\label{tab:dataset_overview}
+\begin{tabular}{ll}
+\toprule
+\textbf{Caractéristique} & \textbf{Valeur} \\
+\midrule
+Nombre total de transactions & $\approx$ 200~000 \\
+Nombre de transactions frauduleuses & 258 \\
+Ratio fraude/légitime & 1 : 774 (0,129\,\%) \\
+Nombre de variables & 11 \\
+Fenêtre temporelle & 743 heures ($\approx$ 30 jours) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Description des variables}
+
+\begin{table}[H]
+\centering
+\caption{Description des variables du jeu de données}
+\label{tab:variables}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable}        & \textbf{Type}  & \textbf{Description} \\
+\midrule
+\texttt{step}            & Entier    & Pas de temps (1 = 1 heure, max 743) \\
+\texttt{type}            & Catégorie & Type d'opération (5 modalités) \\
+\texttt{amount}          & Réel      & Montant de la transaction \\
+\texttt{nameOrig}        & Chaîne    & Identifiant du compte émetteur \\
+\texttt{oldbalanceOrg}   & Réel      & Solde émetteur avant transaction \\
+\texttt{newbalanceOrig}  & Réel      & Solde émetteur après transaction \\
+\texttt{nameDest}        & Chaîne    & Identifiant du compte destinataire \\
+\texttt{oldbalanceDest}  & Réel      & Solde destinataire avant transaction \\
+\texttt{newbalanceDest}  & Réel      & Solde destinataire après transaction \\
+\texttt{isFraud}         & Binaire   & \textbf{Variable cible} : 1 = fraude \\
+\texttt{isFlaggedFraud}  & Binaire   & Indicateur système naïf existant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Types de transactions}
+
+Cinq types de transactions sont présents dans le jeu de données :
+
+\begin{table}[H]
+\centering
+\caption{Distribution des types de transactions et taux de fraude}
+\label{tab:types_transactions}
+\begin{tabular}{lrr}
+\toprule
+\textbf{Type}  & \textbf{Fréquence} & \textbf{Taux de fraude} \\
+\midrule
+CASH\_IN       & $\sim$35~\% & 0,000~\% \\
+CASH\_OUT      & $\sim$35~\% & 0,181~\% \\
+DEBIT          & $\sim$1~\%  & 0,000~\% \\
+PAYMENT        & $\sim$22~\% & 0,000~\% \\
+TRANSFER       & $\sim$7~\%  & 0,775~\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Observation clé :} seuls les types \texttt{TRANSFER} et \texttt{CASH\_OUT} présentent des cas de fraude. Cette information sera exploitée lors de l'ingénierie de variables.
+
+\section{Analyse exploratoire des données}
+
+\subsection{Déséquilibre des classes}
+
+Le déséquilibre est extrême : les transactions frauduleuses représentent \textbf{0,129~\%} du corpus. Un modèle prédisant systématiquement « légitime » atteindrait une exactitude de 99,87~\% tout en ne détectant aucune fraude. C'est pourquoi l'exactitude (\textit{accuracy}) est une métrique inadaptée à ce problème, et les métriques retenues sont le rappel, la précision, le F1-score et la courbe PR-AUC.
+
+\subsection{Distribution des montants}
+
+La variable \texttt{amount} présente une asymétrie (\textit{skewness}) très élevée (\textbf{30,80}), indiquant une distribution fortement concentrée sur de petites valeurs avec de rares transactions à montant très élevé.
+
+\begin{table}[H]
+\centering
+\caption{Statistiques descriptives de la variable \texttt{amount}}
+\label{tab:amount_stats}
+\begin{tabular}{ll}
+\toprule
+\textbf{Statistique} & \textbf{Valeur} \\
+\midrule
+Minimum   & 0,00 \\
+Médiane   & $\sim$ 74~000 \\
+Moyenne   & $\sim$ 179~862 \\
+Maximum   & $\sim$ 92~445~517 \\
+Skewness  & 30,80 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Cette propriété justifie l'application d'une transformation logarithmique $\log(1+x)$ lors de la préparation des données.
+
+\subsection{Analyse temporelle}
+
+L'analyse de la variable \texttt{step} révèle une saisonnalité des fraudes. Les heures à risque élevé identifiées dans l'EDA sont : $\{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 23\}$. Le ratio de fraude durant ces heures est \textbf{10,63} fois supérieur à celui des heures ordinaires. Cette observation conduit à la création d'une variable indicatrice \texttt{high\_risk\_hour}.
+
+\subsection{Analyse des soldes et détection de leakage}
+
+L'analyse des variables de soldes révèle que \texttt{oldbalanceOrg}, \texttt{newbalanceOrig}, \texttt{oldbalanceDest} et \texttt{newbalanceDest} présentent des incohérences pour les transactions frauduleuses (soldes nuls anormaux). Ces variables sont des \textbf{indicateurs trop directs de la fraude} et causeraient une fuite d'information si elles étaient directement incluses dans les modèles. À la place, une variable dérivée \texttt{balance\_diff\_orig} est créée (corrélation de \textbf{0,3662} avec \texttt{isFraud}).
+
+\subsection{Baseline du système existant}
+
+Le système existant (\texttt{isFlaggedFraud}) sert de référence basse :
+
+\begin{table}[H]
+\centering
+\caption{Performances de la baseline \texttt{isFlaggedFraud}}
+\label{tab:baseline_perf}
+\begin{tabular}{lr}
+\toprule
+\textbf{Métrique} & \textbf{Valeur} \\
+\midrule
+Recall            & 0,0039 \\
+Precision         & 1,0000 \\
+F1-Score          & 0,0077 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Ce système ne détecte qu'une infime fraction des fraudes réelles, confirmant la nécessité d'une approche par apprentissage automatique.
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+L'analyse exploratoire a mis en évidence les caractéristiques clés du jeu de données : déséquilibre extrême des classes (1:774), asymétrie des montants, saisonnalité temporelle des fraudes et risque de fuite d'information sur les variables de soldes. Ces observations orientent directement les décisions de préparation et de modélisation décrites dans le chapitre suivant.
+
+% =====================================================
+% CHAPITRE 4 : PREPARATION DES DONNEES (CRISP-DM Phase 3)
+% =====================================================
+\chapter{Préparation des données}
+
+\section{Introduction}
+
+Préparer les données, c'est poser les fondations sur lesquelles reposent tous les modèles à venir. L'enjeu central n'était pas seulement technique, mais méthodologique : comment extraire des signaux pertinents des variables brutes, tout en évitant d'introduire de l'information du futur dans l'apprentissage (\textit{data leakage}) ? Ce chapitre détaille chaque choix effectué, tels qu'ils ressortent des notebooks \texttt{02\_data\_understanding.ipynb} et \texttt{03\_data\_preparation.ipynb}.
+
+\section{Pipeline de préparation}
+
+\subsection{Vue d'ensemble}
+
+Le pipeline de préparation, implémenté dans \texttt{src/preprocessing/preprocessing.py}, suit les étapes suivantes :
+
+\begin{enumerate}
+  \item Suppression des variables à risque de leakage
+  \item Ingénierie de variables (\textit{feature engineering})
+  \item Division stratifiée du corpus (train / validation / test)
+  \item Normalisation (StandardScaler, fit sur train uniquement)
+  \item Gestion du déséquilibre (pondération et SMOTE)
+\end{enumerate}
+
+\subsection{Suppression des variables à risque de leakage}
+
+\begin{table}[H]
+\centering
+\caption{Variables supprimées et justifications}
+\label{tab:cols_dropped}
+\begin{tabular}{ll}
+\toprule
+\textbf{Variable} & \textbf{Justification} \\
+\midrule
+\texttt{nameOrig}, \texttt{nameDest}           & Identifiants nominaux non encodables \\
+\texttt{oldbalanceOrg}, \texttt{newbalanceOrig} & Fuite directe d'information \\
+\texttt{oldbalanceDest}, \texttt{newbalanceDest} & Fuite directe d'information \\
+\texttt{isFlaggedFraud}                         & Label proxy du système existant \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Ingénierie de variables}
+
+\subsection{Variables temporelles}
+
+La variable \texttt{step} (pas de temps en heures) est décomposée en trois variables cycliques :
+
+\begin{itemize}
+  \item \texttt{hour} : heure dans la journée (0--23), calculée par $\texttt{step} \bmod 24$.
+  \item \texttt{day} : jour de simulation (0--30), calculé par $\lfloor \texttt{step} / 24 \rfloor \bmod 31$.
+  \item \texttt{week} : semaine de simulation (0--4), calculée par $\lfloor \texttt{step} / 168 \rfloor$.
+\end{itemize}
+
+\subsection{Variables comportementales et de risque}
+
+\begin{table}[H]
+\centering
+\caption{Variables dérivées construites lors du feature engineering}
+\label{tab:features_derivees}
+\begin{tabular}{lll}
+\toprule
+\textbf{Variable}                & \textbf{Formule / Logique}                          & \textbf{Signal mesuré} \\
+\midrule
+\texttt{high\_risk\_hour}        & $1$ si \texttt{hour} $\in \{0,...,9, 23\}$          & Ratio fraude $10,63\times$ \\
+\texttt{is\_transfer\_or\_cashout} & $1$ si \texttt{type} $\in$ \{TRANSFER, CASH\_OUT\} & Types à fraude non nulle \\
+\texttt{balance\_diff\_orig}     & \texttt{oldbalanceOrg} $-$ \texttt{newbalanceOrig}  & Corrélation 0,3662 avec \texttt{isFraud} \\
+\texttt{dest\_zero\_balance}     & $1$ si \texttt{oldbalanceDest} $= 0$                & Taux fraude $2,52\,\%$ vs $0,13\,\%$ global \\
+\texttt{log\_amount}             & $\log(1 + \texttt{amount})$                         & Corrige skewness $= 30,80$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Encodage one-hot}
+
+La variable catégorielle \texttt{type} (5 modalités) est encodée par \textbf{one-hot encoding}, produisant les colonnes \texttt{type\_CASH\_IN}, \texttt{type\_CASH\_OUT}, \texttt{type\_DEBIT}, \texttt{type\_PAYMENT} et \texttt{type\_TRANSFER}.
+
+\subsection{Ensemble final de variables}
+
+Après feature engineering, le jeu de données comprend \textbf{14 variables} réparties en quatre catégories : temporelles (\texttt{step}, \texttt{hour}, \texttt{day}, \texttt{week}), montant (\texttt{log\_amount}), comportementales (\texttt{balance\_diff\_orig}, \texttt{high\_risk\_hour}, \texttt{is\_transfer\_or\_cashout}, \texttt{dest\_zero\_balance}) et types OHE (5 colonnes binaires).
+
+\section{Division et normalisation}
+
+\subsection{Division stratifiée}
+
+Le corpus est divisé en trois sous-ensembles de manière stratifiée sur la variable cible :
+
+\begin{table}[H]
+\centering
+\caption{Division stratifiée du corpus}
+\label{tab:splits}
+\begin{tabular}{lrrl}
+\toprule
+\textbf{Ensemble} & \textbf{Taille} & \textbf{Fraudes} & \textbf{Rôle} \\
+\midrule
+Entraînement  & 139~999 & 181 & Apprentissage des modèles \\
+Validation    & 30~000  & 38  & Réglage des hyperparamètres et seuils \\
+Test          & 30~001  & 39  & Évaluation finale (jamais touché avant évaluation) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Principe d'étanchéité :} L'ensemble de test n'est jamais consulté avant l'évaluation finale, conformément aux bonnes pratiques anti-\textit{data snooping}.
+
+\subsection{Normalisation}
+
+Le \textbf{StandardScaler} est ajusté exclusivement sur l'ensemble d'entraînement, puis appliqué sur les trois partitions. Cette discipline garantit l'absence de leakage statistique.
+
+\section{Gestion du déséquilibre}
+
+\subsection{Pondération des classes}
+
+Pour les modèles supervisés, des poids de classes sont calculés automatiquement (formule sklearn balanced) :
+\[
+w_c = \frac{n_{\text{total}}}{n_{\text{classes}} \times n_c}
+\]
+Avec 139~999 transactions d'entraînement dont 181 fraudes, les poids obtenus sont approximativement $w_0 \approx 0,50$ et $w_1 \approx 386,7$.
+
+\subsection{SMOTE}
+
+\textbf{SMOTE} (\textit{Synthetic Minority Over-sampling Technique}) génère des exemples synthétiques de la classe minoritaire par interpolation dans l'espace des features. Il est appliqué \textbf{uniquement sur l'ensemble d'entraînement}.
+
+\subsection{Ensemble pour l'autoencoder}
+
+Pour l'autoencoder non supervisé, un sous-ensemble \texttt{X\_train\_normal} est extrait : il contient \textbf{uniquement les 139~818 transactions légitimes} (0 fraude), permettant au modèle d'apprendre exclusivement la distribution normale.
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+La préparation des données produit 14 variables représentatives des patterns de fraude, en respectant strictement l'étanchéité entre les partitions. Les 7 variables dérivées ont chacune été validées empiriquement lors de l'EDA. Ce socle solide permet d'entraîner des modèles fiables et comparables, décrits dans le chapitre suivant.
+
+% =====================================================
+% CHAPITRE 5 : MODELISATION (CRISP-DM Phase 4)
+% =====================================================
+\chapter{Modélisation}
+
+\section{Introduction}
+
+Une fois les données préparées, vient la phase de construction des modèles. Plutôt que de choisir d'emblée l'approche la plus sophistiquée, une progression logique a été adoptée : commencer par un modèle simple servant de référence, complexifier si les performances le justifient, puis compléter avec une perspective non supervisée. Ce chapitre décrit les trois architectures développées, à travers les notebooks \texttt{03\_baseline\_models.ipynb} et \texttt{04\_autoencoder.ipynb}.
+
+\section{Régression logistique}
+
+\subsection{Principe et justification}
+
+La régression logistique est la baseline --- le modèle de référence que tout algorithme plus complexe doit surpasser. Elle produit une probabilité d'appartenance à la classe fraude via la fonction sigmoïde :
+\[
+P(\text{fraude} | \mathbf{x}) = \sigma(\mathbf{w}^\top \mathbf{x} + b) = \frac{1}{1 + e^{-(\mathbf{w}^\top \mathbf{x} + b)}}
+\]
+
+Sa faible capacité expressive est ici un avantage : si la régression logistique détecte déjà une grande partie des fraudes, le signal est linéairement séparable.
+
+\begin{table}[H]
+\centering
+\caption{Hyperparamètres de la régression logistique}
+\label{tab:lr_params}
+\begin{tabular}{lll}
+\toprule
+\textbf{Paramètre}    & \textbf{Valeur}    & \textbf{Justification} \\
+\midrule
+\texttt{C}            & 0.1                & Régularisation forte (peu de fraudes) \\
+\texttt{solver}       & lbfgs              & Adapté aux datasets moyens \\
+\texttt{class\_weight}& balanced           & Correction du déséquilibre \\
+\texttt{max\_iter}    & 1000               & Convergence assurée \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Variantes et résultats}
+
+Deux variantes sont comparées : \textbf{LR\_balanced} (pondération des classes) et \textbf{LR\_smote} (entraînée sur données SMOTE). La recherche de seuil optimal sur validation améliore significativement le compromis précision/rappel. Le seuil optimal de \texttt{LR\_smote} est \textbf{0,9621} et produit sur test un rappel de \textbf{0,6923}, une précision de \textbf{0,7297} et un F1-score de \textbf{0,7105}.
+
+\section{Forêt aléatoire}
+
+\subsection{Principe}
+
+La forêt aléatoire constitue la référence supervisée robuste. Son principe repose sur la diversité : entraîner un grand nombre d'arbres de décision sur des sous-échantillons distincts (bootstrap), puis agréger leurs prédictions. Cette diversité rend l'ensemble résistant au surapprentissage et capable de capturer des interactions non linéaires.
+
+\begin{table}[H]
+\centering
+\caption{Hyperparamètres de la forêt aléatoire}
+\label{tab:rf_params}
+\begin{tabular}{lll}
+\toprule
+\textbf{Paramètre}          & \textbf{Valeur} & \textbf{Justification} \\
+\midrule
+\texttt{n\_estimators}      & 300             & Stabilité des estimations \\
+\texttt{max\_depth}         & 10              & Limite l'overfitting sur peu de fraudes \\
+\texttt{min\_samples\_leaf} & 5               & Évite les feuilles trop petites \\
+\texttt{class\_weight}      & balanced        & Correction du déséquilibre \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Importance des variables}
+
+Les cinq variables les plus influentes dans \texttt{RF\_smote} sont : \texttt{balance\_diff\_orig} ($\approx$0,385), \texttt{hour} ($\approx$0,118), \texttt{dest\_zero\_balance} ($\approx$0,115), \texttt{type\_TRANSFER} ($\approx$0,089) et \texttt{log\_amount} ($\approx$0,081). Le comportement du compte émetteur, la temporalité et la nature du transfert sont les signaux les plus discriminants.
+
+\section{Autoencoder}
+
+\subsection{Principe de détection par reconstruction}
+
+\begin{definitionbox}
+\textbf{Principe de l'autoencoder pour la détection d'anomalies :}
+\begin{itemize}
+  \item \textbf{Entraînement :} uniquement sur les transactions légitimes → le modèle apprend à reconstruire fidèlement les patterns normaux.
+  \item \textbf{Inférence :} sur une transaction frauduleuse (pattern jamais vu), l'erreur de reconstruction est élevée.
+  \item \textbf{Décision :} si l'erreur de reconstruction (MSE) dépasse un seuil $\theta$, la transaction est classée comme anomalie.
+\end{itemize}
+\end{definitionbox}
+
+\subsection{Architecture}
+
+L'architecture retenue est un autoencoder symétrique : 14 → 10 → 7 → [4 \textit{bottleneck}] → 7 → 10 → 14.
+
+\begin{table}[H]
+\centering
+\caption{Architecture de l'autoencoder}
+\label{tab:ae_architecture}
+\begin{tabular}{llll}
+\toprule
+\textbf{Partie} & \textbf{Couche} & \textbf{Dimension} & \textbf{Activation} \\
+\midrule
+Entrée   & Input      & 14 & --- \\
+Encodeur & Dense 1    & 10 & ReLU + BN + Dropout(0.2) \\
+         & Dense 2    & 7  & ReLU + BN + Dropout(0.2) \\
+         & Bottleneck & 4  & ReLU \\
+Décodeur & Dense 3    & 7  & ReLU + BN + Dropout(0.2) \\
+         & Dense 4    & 10 & ReLU + BN + Dropout(0.2) \\
+Sortie   & Dense 5    & 14 & Linéaire \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Les techniques de régularisation utilisées sont la normalisation par lots (BatchNorm), le Dropout (taux 0,2) et la régularisation L2 ($\lambda = 10^{-5}$).
+
+\subsection{Entraînement et seuil}
+
+L'entraînement est réalisé sur les 139~818 transactions légitimes, avec \textit{EarlyStopping} (patience=10). Il s'arrête après \textbf{35 époques effectives}, avec un meilleur \texttt{val\_loss} de \textbf{0,145024} et un temps d'entraînement de \textbf{45,2 secondes}. Le seuil optimal obtenu sur validation est \textbf{1,687408}.
+
+\section{Récapitulatif des modèles}
+
+\begin{table}[H]
+\centering
+\caption{Récapitulatif des configurations de modèles construites}
+\label{tab:models_recap}
+\begin{tabular}{llll}
+\toprule
+\textbf{Configuration} & \textbf{Type}          & \textbf{Données train}      & \textbf{Anti-déséquilibre} \\
+\midrule
+LR\_balanced           & Supervisé linéaire     & \texttt{X\_train}           & class\_weight \\
+LR\_smote              & Supervisé linéaire     & \texttt{X\_smote}           & SMOTE \\
+RF\_balanced           & Supervisé ensembliste  & \texttt{X\_train}           & class\_weight \\
+RF\_smote              & Supervisé ensembliste  & \texttt{X\_smote}           & SMOTE \\
+Autoencoder            & Non supervisé          & \texttt{X\_train\_normal}   & Apprentissage normal \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+Ce chapitre a décrit les trois familles de modèles développées. Les variantes supervisées montrent que le choix du seuil de décision influence fortement le compromis précision/rappel, tandis que \texttt{RF\_smote} s'impose comme la meilleure configuration. L'autoencoder complète ce dispositif par une logique non supervisée. L'évaluation comparative est présentée dans le chapitre suivant.
+
+% =====================================================
+% CHAPITRE 6 : EVALUATION ET EXPLICABILITE (CRISP-DM Phase 5)
+% =====================================================
+\chapter{Évaluation et interprétabilité}
+
+\section{Introduction}
+
+L'évaluation sert à répondre à deux questions distinctes : le modèle détecte-t-il réellement les fraudes (évaluation quantitative) ? Et ses décisions sont-elles compréhensibles et défendables pour un auditeur (évaluation qualitative) ? Ce chapitre synthétise les résultats issus des notebooks \texttt{03\_baseline\_models.ipynb}, \texttt{04\_autoencoder.ipynb}, \texttt{05\_shap\_lime.ipynb} et \texttt{06\_llm\_integration.ipynb}.
+
+\section{Métriques d'évaluation}
+
+Dans un contexte de fort déséquilibre, l'exactitude n'est pas pertinente. Les métriques retenues sont :
+
+\begin{itemize}
+  \item \textbf{Rappel (Recall)} : fraction des fraudes réelles correctement détectées. Priorité~1 car manquer une fraude coûte cher.
+  \item \textbf{Précision (Precision)} : fraction des alertes qui sont réellement des fraudes. Priorité~2 car trop de faux positifs surchargent les équipes.
+  \item \textbf{F1-Score} : moyenne harmonique de la précision et du rappel.
+  \item \textbf{PR-AUC} : synthétise le tradeoff précision/rappel sur l'ensemble des seuils.
+\end{itemize}
+
+\section{Résultats comparatifs sur le test}
+
+\begin{table}[H]
+\centering
+\caption{Comparaison des performances sur l'ensemble de test}
+\label{tab:results_comparison}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Modèle}             & \textbf{Seuil} & \textbf{Recall} & \textbf{Precision} & \textbf{F1} & \textbf{PR-AUC} \\
+\midrule
+Baseline (\texttt{isFlaggedFraud}) & N/A    & 0,0039 & 1,0000 & 0,0077 & N/A \\
+LR\_balanced                & 0,9986         & 0,6410 & 0,6579 & 0,6494 & 0,7044 \\
+LR\_smote                   & 0,9621         & 0,6923 & 0,7297 & 0,7105 & 0,7393 \\
+RF\_balanced                & 0,6235         & 0,7692 & 0,8333 & 0,8000 & 0,7794 \\
+\textbf{RF\_smote}          & \textbf{0,6291}& \textbf{0,7949}& \textbf{0,8158}& \textbf{0,8052}& \textbf{0,8405} \\
+Autoencoder                 & 1,6874         & 0,3590 & 0,6087 & 0,4516 & 0,3734 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+La forêt aléatoire avec SMOTE est le meilleur modèle : 31 fraudes détectées sur 39 pour seulement 7 faux positifs. Toutes les configurations dépassent largement la baseline, validant la nécessité d'une approche par apprentissage automatique.
+
+\section{Interprétabilité des modèles}
+
+\subsection{SHAP --- Notebook \texttt{05\_shap\_lime.ipynb}}
+
+\begin{definitionbox}
+\textbf{SHAP} (SHapley Additive exPlanations) attribue à chaque variable une valeur représentant sa contribution marginale à la prédiction, calculée en moyennant l'impact de la variable sur toutes les combinaisons possibles de features. Cette approche garantit additivité, cohérence et absence de biais entre les variables.
+\end{definitionbox}
+
+Pour la forêt aléatoire, un explainer \textbf{TreeSHAP} est utilisé. Les résultats montrent que \texttt{balance\_diff\_orig}, \texttt{is\_transfer\_or\_cashout} et \texttt{log\_amount} sont les variables à plus forte contribution, en cohérence avec l'analyse exploratoire. SHAP permet deux niveaux d'analyse : une vue globale (importance des variables sur l'ensemble du dataset) et une vue locale (explication de chaque transaction individuellement).
+
+\subsection{LIME --- Notebook \texttt{05\_shap\_lime.ipynb}}
+
+\begin{definitionbox}
+\textbf{LIME} (Local Interpretable Model-agnostic Explanations) explique chaque prédiction individuellement en perturbant légèrement la transaction d'entrée et en observant comment la prédiction varie. Il approxime localement le comportement du modèle complexe par un modèle linéaire simple.
+\end{definitionbox}
+
+LIME est particulièrement utile pour expliquer un cas suspect spécifique à un analyste sans avoir besoin de comprendre le comportement global du modèle. Contrairement à SHAP, il est agnostique à l'architecture du modèle.
+
+\begin{table}[H]
+\centering
+\caption{Comparaison des méthodes d'explicabilité}
+\label{tab:shap_lime}
+\begin{tabular}{lll}
+\toprule
+\textbf{Critère} & \textbf{SHAP}                    & \textbf{LIME} \\
+\midrule
+Scope            & Global + Local                   & Local uniquement \\
+Fondement        & Théorie des jeux                 & Approximation locale \\
+Fidélité         & Élevée (TreeSHAP exact)          & Variable (approximation) \\
+Rapidité         & Rapide (TreeSHAP)                & Lent (nombreuses perturbations) \\
+Agnosticisme     & Méthodes spécifiques             & Agnostique \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Intégration Ollama --- Notebook \texttt{06\_llm\_integration.ipynb}}
+
+\subsection{Présentation d'Ollama}
+
+Ollama est un outil permettant d'exécuter des grands modèles de langage (LLM) entièrement en local, sans envoyer de données vers des services cloud externes. Ce point est non négociable dans ce projet : les transactions financières auditées sont confidentielles et ne peuvent pas quitter l'environnement sécurisé. L'intégration avec Ollama permet de produire des explications en langage naturel directement lisibles par un auditeur sans formation en machine learning, sans compromettre la confidentialité.
+
+\subsection{Architecture de l'intégration}
+
+Le module \texttt{ml\_core/llm\_integration/llm\_helper.py} encapsule la logique d'appel au LLM. Pour chaque transaction signalée comme anormale, les éléments suivants sont transmis :
+
+\begin{itemize}
+  \item Le score d'anomalie ou d'erreur de reconstruction.
+  \item Les valeurs des variables les plus contributives (issues de SHAP/LIME).
+  \item Le contexte métier de la transaction (type, montant, heure).
+\end{itemize}
+
+La configuration du LLM est centralisée dans \texttt{config/llm\_config.yaml} et chargée via le service \texttt{app/services/llm\_service.py}. Les paramètres clés sont la température (\texttt{temperature: 0.1} pour des explications déterministes et factuelles), le timeout et le nombre maximum de tokens.
+
+\subsection{Exemple d'explication générée}
+
+\begin{lstlisting}[caption={Exemple d'explication Ollama pour une transaction suspecte},label={lst:ollama_example}]
+Transaction ID : TXN_00123
+Montant : 245 000 | Type : TRANSFER | Heure : 03h00
+
+Cette transaction est signalee comme suspecte pour les raisons
+suivantes :
+1. Elle est de type TRANSFER, l'un des seuls types associes a
+   des fraudes historiques dans le corpus d'audit.
+2. Elle a eu lieu a 3h00, une heure a risque eleve (ratio de
+   fraude 10x superieur a la moyenne).
+3. La difference de solde de l'emetteur (balance_diff_orig =
+   245 000) est anormalement elevee.
+4. Le score de reconstruction de l'autoencoder (MSE = 1.87)
+   depasse le seuil optimal (theta = 1.67).
+
+Recommandation : Soumettre a une verification manuelle.
+\end{lstlisting}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+L'évaluation confirme que la forêt aléatoire avec SMOTE constitue la meilleure approche supervisée, avec un excellent rappel et F1-score dépassant les critères de succès définis. L'autoencoder apporte une perspective complémentaire non supervisée. La double couche d'explicabilité (SHAP/LIME + Ollama) répond à l'objectif d'interprétabilité. Le chapitre suivant décrit le déploiement complet de la solution.
+
+% =====================================================
+% CHAPITRE 7 : DEPLOIEMENT ET ARCHITECTURE FULL-STACK
+% =====================================================
+\chapter{Déploiement et architecture full-stack}
+
+\section{Introduction}
+
+Un modèle performant qui ne peut pas être utilisé par des non-techniciens n'a que peu de valeur dans un contexte professionnel. La phase de déploiement a donc consisté à rendre l'ensemble du travail accessible via une plateforme web complète : un \textbf{pipeline de reproduction} pour les data scientists, un \textbf{backend FastAPI} exposant les capacités de détection et d'explicabilité via des API REST, et un \textbf{frontend Next.js} offrant aux auditeurs une interface graphique intuitive.
+
+Ce chapitre est structuré en trois parties : le pipeline de reproduction des notebooks, l'architecture du backend, et l'architecture du frontend.
+
+\section{Pipeline de reproduction et architecture modulaire}
+
+\subsection{Structure des modules}
+
+Le projet est organisé en modules fonctionnels clairement délimités :
+
+\begin{table}[H]
+\centering
+\caption{Structure des modules du projet}
+\label{tab:modules}
+\begin{tabular}{ll}
+\toprule
+\textbf{Module}                       & \textbf{Responsabilité} \\
+\midrule
+\texttt{src/preprocessing/}           & Chargement, nettoyage, normalisation, split \\
+\texttt{src/feature\_engineering/}    & Création des 7 variables dérivées \\
+\texttt{src/models/}                  & Modèles ML et autoencoder \\
+\texttt{src/pipeline/}                & Orchestration entraînement et inférence \\
+\texttt{src/utils/}                   & Métriques, évaluation, utilitaires \\
+\texttt{src/visualization/}           & Génération de figures et graphiques \\
+\texttt{src/ollama\_integration/}     & Génération d'explications LLM (notebooks) \\
+\texttt{src/explainability/}          & Explicabilité SHAP et LIME \\
+\texttt{ml\_core/}                    & Noyau ML partagé entre notebooks et backend \\
+\texttt{app/}                         & Backend FastAPI \\
+\texttt{frontend/}                    & Plateforme web Next.js \\
+\texttt{tests/}                       & Tests unitaires \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Script d'orchestration}
+
+Le script \texttt{run\_all.py} permet d'exécuter les 7 notebooks de manière séquentielle et reproductible. Il propose plusieurs modes d'exécution :
+
+\begin{lstlisting}[caption={Options du script run\_all.py},label={lst:run_all}]
+python run_all.py              # Pipeline complet
+python run_all.py --check-only # Verification des imports
+python run_all.py --from 03   # Reprise a partir du notebook 03
+python run_all.py --only 04   # Notebook 04 uniquement
+\end{lstlisting}
+
+\subsection{Gestion de la reproductibilité}
+
+La reproductibilité est garantie par : des graines aléatoires fixes (\texttt{RANDOM\_STATE = 42}), un environnement virtuel avec dépendances centralisées dans \texttt{requirements.txt}, un pipeline déterministe (scaler et encodeurs sauvegardés pour réapplication à l'inférence), et une séparation stricte des données (test jamais touché avant évaluation finale).
+
+\section{Backend FastAPI}
+
+\subsection{Vue d'ensemble}
+
+Le backend est développé avec \textbf{FastAPI}, un framework Python moderne orienté performances, basé sur Starlette et Pydantic. Il constitue le pont entre les modèles ML entraînés lors de la phase de modélisation et l'interface web. Son rôle est d'exposer les capacités de détection, d'explicabilité et de génération de rapports via des endpoints REST sécurisés.
+
+\begin{techbox}
+\textbf{Stack technique du backend :}
+\begin{itemize}
+  \item \textbf{Framework :} FastAPI 0.100+ avec lifespan context manager
+  \item \textbf{Base de données :} PostgreSQL + SQLAlchemy (ORM asynchrone) + Alembic (migrations)
+  \item \textbf{Authentification :} JWT (JSON Web Tokens) via dépendances FastAPI
+  \item \textbf{ML Runtime :} Scikit-learn, TensorFlow/Keras, XGBoost, Joblib
+  \item \textbf{LLM :} Ollama (local) via le module \texttt{ml\_core/llm\_integration/}
+  \item \textbf{Génération de rapports :} ReportLab (PDF)
+\end{itemize}
+\end{techbox}
+
+\subsection{Point d'entrée et cycle de vie}
+
+Le point d'entrée de l'application est \texttt{app/main.py}. Il utilise le gestionnaire de contexte \texttt{lifespan} pour initialiser l'application au démarrage et nettoyer les ressources à l'arrêt. Les étapes d'initialisation sont :
+
+\begin{enumerate}
+  \item \textbf{Migration de la base de données :} si \texttt{AUTO\_MIGRATE=true}, Alembic applique automatiquement les migrations via \texttt{alembic upgrade head}.
+  \item \textbf{Chargement des modèles ML :} tous les artefacts (modèles joblib, autoencoder Keras, seuils optimaux, scaler) sont chargés une seule fois en mémoire via \texttt{load\_all\_models()}.
+  \item \textbf{Initialisation du LLM Helper :} le module \texttt{LLMHelper} est instancié depuis la configuration \texttt{config/llm\_config.yaml}. En cas d'indisponibilité d'Ollama, un mode fallback basé sur des règles s'active.
+  \item \textbf{Cache des résultats :} un cache en mémoire (max 20 entrées, éviction LRU) est initialisé pour stocker temporairement les résultats d'analyse entre les appels.
+\end{enumerate}
+
+La middleware CORS est configurée pour accepter les requêtes du frontend (\texttt{localhost:3000} et \texttt{localhost:5173}).
+
+\subsection{Architecture des routes}
+
+Le backend expose sept groupes de routes montées sous le préfixe \texttt{/api} :
+
+\begin{table}[H]
+\centering
+\caption{Routes API du backend FastAPI}
+\label{tab:routes}
+\begin{tabular}{lll}
+\toprule
+\textbf{Groupe}           & \textbf{Fichier}            & \textbf{Fonctionnalité principale} \\
+\midrule
+\texttt{/api/predict}     & \texttt{routes/predict.py}  & Analyse d'un CSV et détection de fraude \\
+\texttt{/api/explain}     & \texttt{routes/explain.py}  & Explication SHAP/LIME d'une transaction \\
+\texttt{/api/report}      & \texttt{routes/report.py}   & Génération de rapport PDF \\
+\texttt{/api/models}      & \texttt{routes/models.py}   & Informations sur les modèles chargés \\
+\texttt{/api/profile}     & \texttt{routes/profile.py}  & Profilage sémantique d'un dataset \\
+\texttt{/api/audit}       & \texttt{routes/audit.py}    & Piste d'audit des analyses \\
+\texttt{/api/datasets}    & \texttt{routes/datasets.py} & Gestion et téléchargement des fichiers \\
+\texttt{/api/health}      & \texttt{main.py}            & Contrôle de santé de l'API \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Endpoint de prédiction : \texttt{POST /api/predict}}
+
+L'endpoint de prédiction est le cœur du système. Son pipeline complet est le suivant :
+
+\begin{enumerate}
+  \item \textbf{Réception du fichier CSV} via \texttt{UploadFile}.
+  \item \textbf{Profilage sémantique} via \texttt{DatasetProfiler} : analyse des colonnes, détection du type de données, statistiques descriptives.
+  \item \textbf{Mapping des colonnes} via \texttt{ColumnMapper} : normalisation des noms de colonnes pour détecter les synonymes du schéma PaySim.
+  \item \textbf{Détection du mode de prédiction} via \texttt{SchemaDetector} : quatre modes sont supportés :
+  \begin{itemize}
+    \item \textbf{paysim} : schéma PaySim complet → XGBoost + Autoencoder (pipeline complet)
+    \item \textbf{ae\_isoforest} : schéma partiel avec montant → Autoencoder + IsolationForest
+    \item \textbf{ae\_only} : montant détecté, peu de numériques → Autoencoder seul
+    \item \textbf{isoforest} : schéma inconnu → IsolationForest seul sur colonnes numériques
+  \end{itemize}
+  \item \textbf{Construction dynamique des features} via \texttt{DynamicFeatureBuilder} avec fallbacks pour les colonnes manquantes.
+  \item \textbf{Feature engineering générique} via \texttt{FeatureEngineer}.
+  \item \textbf{Prédiction selon le mode détecté} et retour des résultats au frontend.
+\end{enumerate}
+
+L'intégralité du pipeline CPU est exécutée dans \texttt{asyncio.to\_thread()} pour ne pas bloquer le worker event-loop de FastAPI, assurant ainsi la scalabilité du serveur.
+
+\subsection{Service de prédiction : \texttt{predictor.py}}
+
+Le service \texttt{app/services/predictor.py} implémente les fonctions principales de feature engineering et de prédiction :
+
+\begin{itemize}
+  \item \texttt{build\_features(df)} : applique les transformations identiques aux notebooks (décomposition temporelle, variables comportementales, log-transformation, one-hot encoding des types).
+  \item \texttt{load\_all\_models(project\_root)} : charge tous les artefacts depuis \texttt{outputs/models/} et \texttt{outputs/reports/} au démarrage de l'application.
+  \item \texttt{predict\_batch(df, models)} : applique les modèles chargés sur le dataframe préparé et retourne les scores et prédictions pour chaque transaction.
+\end{itemize}
+
+Les constantes de preprocessing (\texttt{HIGH\_RISK\_HOURS}, \texttt{FEATURE\_COLS}, \texttt{SCALE\_COLS}) sont définies dans ce module pour garantir la cohérence avec les notebooks d'entraînement.
+
+\subsection{Service LLM : \texttt{llm\_service.py}}
+
+Le service \texttt{app/services/llm\_service.py} instancie le \texttt{LLMHelper} depuis la configuration YAML du projet. Les paramètres clés sont la température (\texttt{0.1} pour des explications déterministes), le timeout et le nombre maximal de tokens. Un mécanisme de fallback est activé automatiquement si Ollama n'est pas disponible, permettant au backend de fonctionner même sans le LLM.
+
+\subsection{Base de données et couche de persistance}
+
+Le backend utilise \textbf{PostgreSQL} comme base de données relationnelle, avec \textbf{SQLAlchemy} (mode asynchrone) comme ORM et \textbf{Alembic} pour la gestion des migrations. Les entités persistées sont :
+
+\begin{table}[H]
+\centering
+\caption{Entités de la base de données}
+\label{tab:db_entities}
+\begin{tabular}{ll}
+\toprule
+\textbf{Entité}              & \textbf{Contenu} \\
+\midrule
+\texttt{Mission}             & Données de la mission d'audit (nom, entreprise, statut) \\
+\texttt{Dataset}             & Référence aux fichiers CSV uploadés \\
+\texttt{AnalysisRun}         & Résultats d'une exécution d'analyse \\
+\texttt{AuditLog}            & Piste d'audit de toutes les actions utilisateurs \\
+\texttt{PredictionMonitoringLog} & Statistiques de performance en ligne \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Authentification et sécurité}
+
+L'authentification est basée sur les \textbf{JSON Web Tokens (JWT)}. Le module \texttt{app/auth/dependencies.py} fournit des dépendances FastAPI injectables dans les routes : \texttt{CurrentUser} (utilisateur authentifié) et \texttt{require\_roles} (contrôle d'accès basé sur les rôles). Cette approche garantit que seuls les auditeurs authentifiés peuvent accéder aux endpoints de prédiction et d'analyse.
+
+\section{Frontend Next.js}
+
+\subsection{Vue d'ensemble}
+
+Le frontend est développé avec \textbf{Next.js 14} (App Router), un framework React permettant le rendu serveur (SSR) et client (CSR). Il offre aux auditeurs une interface graphique complète pour gérer leurs missions, uploader des datasets, lancer des analyses et consulter les résultats.
+
+\begin{techbox}
+\textbf{Stack technique du frontend :}
+\begin{itemize}
+  \item \textbf{Framework :} Next.js 14 (App Router)
+  \item \textbf{UI :} Tailwind CSS + shadcn/ui (composants accessibles)
+  \item \textbf{État :} Zustand (stores globaux) + TanStack Query (cache serveur)
+  \item \textbf{Visualisation :} Recharts (graphiques interactifs)
+  \item \textbf{Internationalisation :} Contexte i18n personnalisé (FR/EN)
+  \item \textbf{Base de données :} Prisma ORM + PostgreSQL (Next.js API routes)
+\end{itemize}
+\end{techbox}
+
+\subsection{Architecture des pages}
+
+L'application Next.js est organisée selon la structure App Router avec deux groupes de routes distincts :
+
+\begin{table}[H]
+\centering
+\caption{Architecture des pages du frontend}
+\label{tab:pages}
+\begin{tabular}{lll}
+\toprule
+\textbf{Route}                              & \textbf{Composant principal}  & \textbf{Fonctionnalité} \\
+\midrule
+\texttt{/login}                             & \texttt{LoginPage}            & Authentification JWT \\
+\texttt{/dashboard}                         & \texttt{DashboardPage}        & Tableau de bord général \\
+\texttt{/missions}                          & \texttt{MissionsPage}         & Liste des missions d'audit \\
+\texttt{/missions/[id]}                     & \texttt{MissionDetailPage}    & Détail d'une mission \\
+\texttt{/missions/[id]/analysis}            & \texttt{AnalysisPage}         & Wizard d'analyse \\
+\texttt{/reports}                           & \texttt{ReportsPage}          & Génération de rapports \\
+\texttt{/history}                           & \texttt{HistoryPage}          & Historique des analyses \\
+\texttt{/audit-trail}                       & \texttt{AuditTrailPage}       & Piste d'audit complète \\
+\texttt{/admin/users}                       & \texttt{UsersAdminPage}       & Gestion des utilisateurs \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Tableau de bord : \texttt{DashboardPage}}
+
+La page d'accueil offre une vue synthétique de l'activité :
+
+\begin{itemize}
+  \item \textbf{KPI en temps réel} : nombre total de missions, missions actives, analyses réalisées, anomalies détectées.
+  \item \textbf{Graphique de répartition} des missions par statut (PieChart Recharts, couleurs PwC : orange pour \textit{in\_progress}, vert pour \textit{active}, etc.).
+  \item \textbf{Activité récente} : liste des dernières actions issues de la piste d'audit.
+  \item \textbf{Accès rapide} aux missions et analyses récentes.
+\end{itemize}
+
+Les données sont récupérées via TanStack Query avec une politique de cache (\texttt{staleTime: 2 * 60 * 1000}) pour éviter des requêtes inutiles tout en maintenant la fraîcheur des données.
+
+\subsection{Gestion des missions}
+
+Les missions d'audit sont l'unité organisationnelle centrale de la plateforme. Chaque mission représente une intervention auprès d'un client et regroupe datasets et analyses associés. Les fonctionnalités disponibles sont :
+
+\begin{itemize}
+  \item \textbf{Création de mission} via \texttt{CreateMissionModal} : formulaire avec nom, entreprise cliente et description.
+  \item \textbf{Vue liste} via \texttt{MissionCard} : affichage du statut, de la date, de l'entreprise et des statistiques d'analyse.
+  \item \textbf{Gestion des datasets} via \texttt{DatasetSection} : upload de fichiers CSV (jusqu'à 500 MB) par glisser-déposer via \texttt{UploadDropzone}.
+  \item \textbf{Transitions de statut} : active → in\_progress → completed → archived.
+\end{itemize}
+
+\subsection{Wizard d'analyse : \texttt{AnalysisWizard}}
+
+Le composant central du flux de détection est le \texttt{AnalysisWizard}, qui guide l'auditeur étape par étape à travers l'analyse d'un dataset :
+
+\begin{enumerate}
+  \item \textbf{Sélection du dataset} : choix parmi les fichiers CSV associés à la mission.
+  \item \textbf{Sélection du modèle} : choix du modèle de détection (RF, Autoencoder, XGBoost, etc.) via l'interface.
+  \item \textbf{Lancement de l'analyse} : envoi du CSV à l'API \texttt{POST /api/predict} avec affichage d'une barre de progression.
+  \item \textbf{Affichage des résultats} : redirection vers \texttt{ResultsDashboard} une fois l'analyse terminée.
+\end{enumerate}
+
+\subsection{Dashboard des résultats : \texttt{ResultsDashboard}}
+
+Le composant \texttt{ResultsDashboard} affiche les résultats d'une analyse sous forme de tableau de bord interactif organisé en plusieurs onglets :
+
+\paragraph{KPI Cards (\texttt{KPICards}).}
+Les métriques principales sont présentées en en-tête : nombre total de transactions analysées, nombre d'anomalies détectées, taux de fraude estimé (en pourcentage), montant total à risque et score moyen de détection.
+
+\paragraph{Visualisations (\texttt{RiskPieChart}, \texttt{AnomalyBarChart}, \texttt{ScoreDistributionChart}).}
+
+\begin{itemize}
+  \item \texttt{RiskPieChart} : répartition des transactions normales vs anomalies (camembert interactif Recharts).
+  \item \texttt{AnomalyBarChart} : distribution des anomalies par type de transaction, permettant d'identifier les catégories à risque.
+  \item \texttt{ScoreDistributionChart} : distribution des scores de détection, avec visualisation du seuil de décision.
+\end{itemize}
+
+\paragraph{Table des anomalies (\texttt{AnomalyTable}).}
+Tableau paginé et triable de toutes les transactions signalées, avec colonnes : identifiant, type, montant, heure, score d'anomalie et actions. Un clic sur « Expliquer » déclenche un appel à \texttt{GET /api/explain/\{tx\_id\}} pour charger l'explication SHAP/LIME de la transaction sélectionnée.
+
+\paragraph{Carte d'explication (\texttt{ExplanationCard}).}
+Pour chaque transaction sélectionnée, une carte affiche l'explication en langage naturel générée par Ollama, ainsi que les valeurs des variables les plus contributives issues de SHAP. L'explication est chargée à la demande via TanStack Query (\texttt{enabled: selectedTxId !== null}).
+
+\paragraph{Avertissements de schéma.}
+Si la détection automatique de schéma a émis des avertissements (colonnes manquantes, mode de prédiction dégradé), une bannière d'alerte orange informe l'auditeur des limitations de l'analyse.
+
+\subsection{Gestion des rapports : \texttt{ReportSection}}
+
+La section rapports permet à l'auditeur de générer un rapport PDF professionnel aux couleurs PwC à partir des résultats d'une analyse :
+
+\begin{itemize}
+  \item Appel à \texttt{POST /api/report} avec les résultats de l'analyse et les métadonnées de la mission.
+  \item Génération côté backend via ReportLab (bibliothèque Python de génération PDF).
+  \item Téléchargement automatique du PDF dans le navigateur.
+\end{itemize}
+
+Le rapport PDF suit un template structuré comportant : page de couverture aux couleurs PwC, résumé exécutif, tableau des KPIs, graphiques intégrés, liste des transactions anormales avec explications, et conclusions pour l'auditeur.
+
+\subsection{Couche de services API}
+
+Le frontend communique avec le backend via une couche de services dédiée dans \texttt{frontend/src/lib/api/} :
+
+\begin{table}[H]
+\centering
+\caption{Services API du frontend}
+\label{tab:api_services}
+\begin{tabular}{ll}
+\toprule
+\textbf{Service}          & \textbf{Endpoints couverts} \\
+\midrule
+\texttt{authService}      & Login, logout, profil utilisateur \\
+\texttt{missionService}   & CRUD des missions d'audit \\
+\texttt{datasetService}   & Upload, liste et téléchargement de datasets \\
+\texttt{analysisService}  & Lancement et récupération des analyses \\
+\texttt{llmService}       & Demande d'explications LLM \\
+\texttt{reportService}    & Génération et téléchargement de rapports PDF \\
+\texttt{auditLogService}  & Consultation de la piste d'audit \\
+\texttt{userService}      & Gestion des utilisateurs (admin) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Tous les services utilisent un client HTTP centralisé (\texttt{client.ts}) qui gère automatiquement l'ajout du token JWT dans les en-têtes d'autorisation et la gestion des erreurs réseau.
+
+\subsection{Gestion de l'état global}
+
+L'état global de l'application est géré avec \textbf{Zustand} via plusieurs stores :
+
+\begin{itemize}
+  \item \texttt{userStore} : informations de l'utilisateur connecté (email, rôle, permissions).
+  \item \texttt{missionStore} : liste des missions en cache local.
+  \item \texttt{datasetStore} : datasets associés à la mission courante.
+  \item \texttt{analysisRunStore} : résultats des analyses récentes.
+  \item \texttt{auditLogStore} : entrées de la piste d'audit.
+\end{itemize}
+
+\subsection{Authentification et contrôle d'accès}
+
+L'authentification frontend est gérée via \texttt{AuthContext} et le middleware Next.js (\texttt{middleware.ts}) :
+
+\begin{itemize}
+  \item Le middleware intercepte toutes les requêtes et redirige les utilisateurs non authentifiés vers \texttt{/login}.
+  \item Le hook \texttt{usePermissions} vérifie les rôles de l'utilisateur (auditeur, manager, admin) et masque les fonctionnalités non autorisées.
+  \item Les API routes Next.js (\texttt{/api/auth/login}, \texttt{/api/auth/logout}) gèrent les sessions via des cookies sécurisés.
+\end{itemize}
+
+\subsection{Internationalisation}
+
+Le frontend supporte deux langues via le contexte \texttt{LanguageContext} : le \textbf{français} (langue par défaut, cohérent avec le contexte PwC Tunisie) et l'\textbf{anglais}. Les traductions sont centralisées et accessibles via le hook \texttt{useLanguage()} qui retourne la fonction \texttt{t(key)} et le locale courant.
+
+\section{Architecture globale de la plateforme}
+
+L'architecture globale de la plateforme peut être résumée par le flux suivant :
+
+\begin{enumerate}
+  \item L'\textbf{auditeur} s'authentifie sur le frontend Next.js et crée une mission.
+  \item Il uploade un \textbf{fichier CSV} de transactions et lance une analyse via le wizard.
+  \item Le frontend envoie le fichier au \textbf{backend FastAPI} (\texttt{POST /api/predict}).
+  \item Le backend détecte le schéma, applique le feature engineering, charge les modèles depuis \texttt{outputs/models/} et prédit pour chaque transaction.
+  \item Les résultats (transactions suspectes, scores, mode de prédiction) sont retournés au frontend et mis en cache.
+  \item L'auditeur peut demander l'\textbf{explication} d'une transaction suspecte : le backend calcule SHAP/LIME et appelle Ollama pour l'explication textuelle.
+  \item L'auditeur peut générer un \textbf{rapport PDF} complet via \texttt{POST /api/report}.
+  \item Toutes les actions sont enregistrées dans la \textbf{piste d'audit} PostgreSQL.
+\end{enumerate}
+
+\section{Difficultés rencontrées et solutions apportées}
+
+\begin{table}[H]
+\centering
+\caption{Difficultés de déploiement et solutions}
+\label{tab:difficultes}
+\begin{tabular}{p{4.5cm}p{9cm}}
+\toprule
+\textbf{Difficulté}                        & \textbf{Solution apportée} \\
+\midrule
+Upload de fichiers volumineux (>500 MB)    & Configuration d'une limite de taille côté Next.js et FastAPI \\
+Schémas de données hétérogènes            & Implémentation d'un détecteur de schéma automatique (4 modes) avec fallbacks \\
+Blocage de l'event loop FastAPI            & Exécution du pipeline ML dans \texttt{asyncio.to\_thread()} \\
+Contamination entre sessions utilisateurs & Cache isolé par \texttt{run\_id} (UUID unique par analyse) \\
+Indisponibilité d'Ollama                  & Mécanisme de fallback rule-based activé automatiquement \\
+Erreurs de schéma inconsistant            & Module \texttt{ColumnMapper} pour normaliser les noms de colonnes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section*{Conclusion}
+\addcontentsline{toc}{section}{Conclusion}
+
+Ce chapitre a présenté l'architecture complète de déploiement de la solution : le pipeline de reproduction des notebooks via \texttt{run\_all.py}, le backend FastAPI avec son pipeline de prédiction intelligent et adaptatif, et la plateforme frontend Next.js permettant aux auditeurs d'utiliser les modèles de manière intuitive. La combinaison d'une architecture backend modulaire et d'une interface frontend riche complète le cycle CRISP-DM en rendant la solution opérationnelle dans un contexte professionnel réel.
+
+% =====================================================
+% CONCLUSION GENERALE
+% =====================================================
+\chapter*{Conclusion générale}
+\addcontentsline{toc}{chapter}{Conclusion générale}
+
+Ce projet de fin d'études a abouti à un résultat concret : une \textbf{chaîne complète de détection intelligente d'anomalies financières}, opérationnelle, reproductible, expliquable et déployée sous forme de plateforme web, développée selon la méthodologie CRISP-DM sur des données transactionnelles réelles issues d'une mission d'audit IT chez PwC Tunisie.
+
+\paragraph{Récapitulatif de la démarche.} Partant d'un corpus de 200~000 transactions financières, le travail a progressé de manière structurée selon les six phases CRISP-DM : compréhension des enjeux métier, analyse exploratoire approfondie, préparation rigoureuse des données (14 variables, séparation étanche des partitions, transformation log, one-hot encoding), entraînement de trois modèles complémentaires (régression logistique, forêt aléatoire, autoencoder), évaluation comparative et mise en place d'une double couche d'explicabilité (SHAP/LIME + Ollama), et enfin déploiement d'une plateforme web complète (FastAPI + Next.js).
+
+\paragraph{Réponse à la problématique.} Le pipeline construit répond positivement à la problématique initiale selon trois dimensions :
+\begin{itemize}
+  \item \textbf{Efficacité de détection :} la forêt aléatoire avec SMOTE atteint un F1-score de 0,80 et un PR-AUC de 0,84, soit un gain considérable par rapport à la baseline (F1=0,0077).
+  \item \textbf{Interprétabilité :} chaque transaction suspecte est accompagnée d'une explication en langage naturel via Ollama, accessible aux auditeurs non-techniciens.
+  \item \textbf{Déploiement opérationnel :} la plateforme web permet à une équipe d'audit de charger n'importe quel dataset transactionnel, d'obtenir les résultats d'analyse en quelques secondes, et de générer un rapport PDF professionnel en un clic.
+\end{itemize}
+
+\paragraph{Difficultés et apports techniques.} Trois défis ont retenu l'essentiel de l'attention : la gestion du déséquilibre extrême (ratio 1:774), la discipline anti-leakage à maintenir tout au long du prétraitement, et la robustesse du pipeline de prédiction face à des schémas de données hétérogènes. Sur le plan technique, ce projet a couvert un spectre inhabituel pour un projet de fin d'études : machine learning supervisé, deep learning, méthodes d'interprétabilité, intégration d'un LLM local, développement d'une API REST et création d'une interface web complète.
+
+\paragraph{Vécu du stage et apports mutuels.} Le quotidien du stage a été jalonné de réunions de suivi régulières, de présentations intermédiaires aux équipes métier, et d'allers-retours constants entre les exigences fonctionnelles des auditeurs et les contraintes techniques de la modélisation. En termes d'apport à PwC Tunisie, le projet livre une première brique d'automatisation de l'audit analytique au sein du département Risk Assurance Services. En retour, ce stage a offert une immersion dans les pratiques professionnelles d'un cabinet international, une exposition concrète aux enjeux de l'audit IT et une expérience formatrice de la gestion d'un projet data science de bout en bout.
+
+\paragraph{Perspectives.} Ce travail ouvre plusieurs axes de prolongement :
+\begin{itemize}
+  \item Intégration de modèles de gradient boosting (LightGBM, XGBoost) pour améliorer les performances supervisées.
+  \item Passage à un autoencoder variationnel (VAE) pour une modélisation probabiliste plus robuste.
+  \item Déploiement en temps réel sur un flux de transactions (Apache Kafka + Flink).
+  \item Enrichissement de la plateforme par des fonctionnalités de collaboration multi-auditeurs et de boucle de rétroaction pour ré-entraîner les modèles à partir des décisions humaines.
+\end{itemize}
+
+% =====================================================
+% BIBLIOGRAPHIE
+% =====================================================
+\chapter*{Bibliographie / Netographie}
+\addcontentsline{toc}{chapter}{Bibliographie / Netographie}
+
+\begin{enumerate}
+
+  \item \textbf{Lopez-Rojas, E.~A., Elmir, A., \& Axelsson, S.} (2016). PaySim: A financial mobile money simulator for fraud detection. \textit{The 28th European Modeling and Simulation Symposium (EMSS)}.
+
+  \item \textbf{Chapman, P., Clinton, J., et al.} (2000). CRISP-DM 1.0: Step-by-step data mining guide. SPSS Inc.
+
+  \item \textbf{Chawla, N.~V., Bowyer, K.~W., et al.} (2002). SMOTE: Synthetic minority over-sampling technique. \textit{Journal of Artificial Intelligence Research}, 16, 321--357.
+
+  \item \textbf{Breiman, L.} (2001). Random forests. \textit{Machine Learning}, 45(1), 5--32.
+
+  \item \textbf{Hinton, G.~E., \& Salakhutdinov, R.~R.} (2006). Reducing the dimensionality of data with neural networks. \textit{Science}, 313(5786), 504--507.
+
+  \item \textbf{Lundberg, S.~M., \& Lee, S.-I.} (2017). A unified approach to interpreting model predictions. \textit{NeurIPS}, 30.
+
+  \item \textbf{Ribeiro, M.~T., Singh, S., \& Guestrin, C.} (2016). ``Why should I trust you?'' Explaining the predictions of any classifier. \textit{ACM SIGKDD}, pp.~1135--1144.
+
+  \item \textbf{Pedregosa, F., et al.} (2011). Scikit-learn: Machine Learning in Python. \textit{JMLR}, 12, 2825--2830.
+
+  \item \textbf{Lemaître, G., Nogueira, F., \& Aridas, C.~K.} (2017). Imbalanced-learn: A Python Toolbox. \textit{JMLR}, 18(17), 1--5.
+
+  \item \textbf{FastAPI}. Documentation officielle. \url{https://fastapi.tiangolo.com/}
+
+  \item \textbf{Next.js}. Documentation officielle. \url{https://nextjs.org/docs}
+
+  \item \textbf{Ollama Inc.} Documentation officielle. \url{https://ollama.com/}
+
+  \item \textbf{Abadi, M., et al.} (2015). TensorFlow: Large-scale machine learning on heterogeneous systems. \url{https://www.tensorflow.org/}
+
+  \item \textbf{Chaieb, Y.} (2026). \textit{Intelligent Anomaly Detection} --- Dépôt GitHub du projet. ESPRIT / PwC Tunisie.
+
+\end{enumerate}
+
+% =====================================================
+% ANNEXES
+% =====================================================
+\appendix
+
+\chapter{Hyperparamètres détaillés des modèles}
+
+\section{Régression logistique}
+
+\begin{lstlisting}[caption={Hyperparamètres LR (ml\_core/models/ml\_models.py)},label={lst:lr_params}]
+LR_DEFAULTS = {
+    "C":             0.1,
+    "max_iter":      1000,
+    "solver":        "lbfgs",
+    "class_weight":  "balanced",
+    "random_state":  42,
+    "n_jobs":        -1,
+}
+\end{lstlisting}
+
+\section{Forêt aléatoire}
+
+\begin{lstlisting}[caption={Hyperparamètres RF (ml\_core/models/ml\_models.py)},label={lst:rf_params}]
+RF_DEFAULTS = {
+    "n_estimators":    300,
+    "max_depth":       10,
+    "min_samples_leaf": 5,
+    "class_weight":    "balanced",
+    "random_state":    42,
+    "n_jobs":          -1,
+}
+\end{lstlisting}
+
+\section{Autoencoder}
+
+\begin{lstlisting}[caption={Hyperparamètres AE (ml\_core/models/autoencoder.py)},label={lst:ae_params}]
+AE_DEFAULTS = {
+    "encoder_dims":       [10, 7],
+    "bottleneck_dim":     4,
+    "decoder_dims":       [7, 10],
+    "activation":         "relu",
+    "output_activation":  "linear",
+    "dropout_rate":       0.2,
+    "use_batch_norm":     True,
+    "l2_reg":             1e-5,
+    "epochs":             100,
+    "batch_size":         256,
+    "learning_rate":      1e-3,
+    "patience":           10,
+    "val_split":          0.1,
+    "threshold_percentile": 95,
+}
+\end{lstlisting}
+
+\chapter{Variables et transformations du pipeline}
+
+\begin{lstlisting}[label={lst:scale_cols}]
+# Variables normalisees (StandardScaler)
+SCALE_COLS = ["step", "hour", "day", "week", "log_amount",
+              "balance_diff_orig"]
+
+# Variables binaires (pas de normalisation)
+BINARY_COLS = ["high_risk_hour", "is_transfer_or_cashout",
+               "dest_zero_balance"]
+
+# Variables one-hot (type de transaction)
+TYPE_COLS = ["type_CASH_IN", "type_CASH_OUT", "type_DEBIT",
+             "type_PAYMENT", "type_TRANSFER"]
+\end{lstlisting}
+
+\chapter{Planning du projet}
+
+\begin{table}[H]
+\centering
+\caption{Planning de réalisation du projet de fin d'études}
+\label{tab:planning}
+\begin{tabular}{lll}
+\toprule
+\textbf{Phase CRISP-DM}  & \textbf{Activités principales}                      & \textbf{Durée} \\
+\midrule
+Compréhension métier     & Analyse des besoins, objectifs, critères de succès & Semaine 1 \\
+Compréhension données    & EDA, notebook 01--02, analyse qualité               & Semaines 2--3 \\
+Préparation données      & Feature engineering, split, normalisation, SMOTE   & Semaines 3--4 \\
+Modélisation             & LR, RF, Autoencoder, réglage des seuils             & Semaines 5--7 \\
+Évaluation               & Métriques, SHAP, LIME, Ollama                       & Semaines 7--9 \\
+Déploiement backend      & FastAPI, routes, services, base de données          & Semaines 8--10 \\
+Déploiement frontend     & Next.js, composants, pages, intégration API         & Semaines 9--11 \\
+Tests et reproductibilité & run\_all.py, tests unitaires, documentation        & Semaines 10--11 \\
+Rédaction du rapport     & Rédaction, révision, mise en forme                  & Semaines 8--12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\chapter{Exemples d'utilisation de la plateforme}
+
+\section{Options du script d'orchestration}
+\label{sec:run_all_options}
+
+\begin{lstlisting}[caption={Commandes du pipeline run\_all.py}]
+# Pipeline complet (notebooks 01 a 07)
+python run_all.py
+
+# Verification des imports uniquement
+python run_all.py --check-only
+
+# Reprise a partir du notebook 03 (modeles)
+python run_all.py --from 03
+
+# Execution d'un seul notebook
+python run_all.py --only 05
+\end{lstlisting}
+
+\section{Exemple de réponse API \texttt{/api/predict}}
+\label{sec:api_example}
+
+\begin{lstlisting}[caption={Exemple de réponse JSON du endpoint de prédiction}]
+{
+  "run_id": "a1b2c3d4-e5f6-...",
+  "n_transactions": 200000,
+  "n_fraud": 31,
+  "fraud_rate_pct": 0.0155,
+  "amount_at_risk": 7450000.0,
+  "model_used": "RF_smote",
+  "prediction_mode": "paysim",
+  "schema_detection": {
+    "mode": "paysim",
+    "confidence": 0.98,
+    "warnings": []
+  },
+  "transactions": [
+    {
+      "tx_id": 42,
+      "is_fraud_predicted": true,
+      "fraud_score": 0.87,
+      "amount": 245000.0,
+      "type": "TRANSFER",
+      "hour": 3
+    }
+  ]
+}
+\end{lstlisting}
+
+\section{Exemple d'explication Ollama}
+\label{sec:ollama_example_app}
+
+\begin{lstlisting}[caption={Exemple d'explication generee par Ollama}]
+Transaction ID : TXN_00123
+Montant : 245 000 | Type : TRANSFER | Heure : 03h00
+
+Cette transaction est signalee comme suspecte :
+1. Type TRANSFER : seul type associe a des fraudes historiques.
+2. Heure 3h00 : ratio fraude 10x superieur a la moyenne.
+3. balance_diff_orig = 245 000 : virement frauduleux probable.
+4. Score AE MSE = 1.87 > seuil theta = 1.67.
+
+Recommandation : Verification manuelle requise.
+\end{lstlisting}
+
+\end{document}

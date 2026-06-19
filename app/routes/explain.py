@@ -9,13 +9,34 @@ from __future__ import annotations
 from typing import Optional
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from app.auth.dependencies import CurrentUser, require_roles
 from app.services.explainer import compute_shap, compute_lime, compute_ae_feature_errors
 from app.services.predictor import FEATURE_COLS
 
 router = APIRouter()
+
+
+def _get_cache(request: Request, run_id: Optional[str]) -> dict:
+    """Return the cached prediction results for a given run_id."""
+    all_caches = request.app.state.results_cache
+    if run_id:
+        entry = all_caches.get(run_id)
+        if not entry:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Aucun résultat pour run_id={run_id}. Relancez POST /api/predict.",
+            )
+        return entry
+    if not all_caches:
+        raise HTTPException(
+            status_code=400,
+            detail="Aucune prédiction disponible. Lancez POST /api/predict d'abord.",
+        )
+    # Fallback: most recent entry
+    return next(reversed(all_caches.values()))
 
 
 def _explain_one(
@@ -129,13 +150,24 @@ def _explain_one(
 
 
 @router.get("/explain/{tx_id}")
-def explain(tx_id: int, request: Request):
-    cache = request.app.state.results_cache
-    if not cache:
-        raise HTTPException(
-            status_code=400,
-            detail="Aucune prédiction disponible. Lancez POST /api/predict d'abord.",
-        )
+def explain(
+    tx_id: int,
+    request: Request,
+    run_id: Optional[str] = Query(None, description="run_id retourné par POST /api/predict"),
+    current_user: CurrentUser = Depends(require_roles("auditor", "manager", "admin")),
+):
+    """
+    Génère une explication complète pour une transaction donnée.
+
+    Retourne :
+      - shap_values_xgb   : contribution de chaque feature au score XGBoost (TreeExplainer)
+      - ae_feature_errors : erreur de reconstruction |x - AE(x)| par feature
+      - ae_top_features   : top-3 features les plus "suspectes" selon l'AE
+      - lime_rules        : règles locales LIME (activé uniquement ici, pas en batch)
+      - llm               : explication en langage naturel générée par le LLM
+    LIME est inclus ici (endpoint unitaire) mais désactivé en batch pour la performance.
+    """
+    cache = _get_cache(request, run_id)
     return _explain_one(
         tx_id=tx_id,
         cache=cache,
@@ -151,18 +183,18 @@ class BatchExplainRequest(BaseModel):
 
 
 @router.post("/explain/batch")
-def explain_batch(body: BatchExplainRequest, request: Request):
+def explain_batch(
+    body: BatchExplainRequest,
+    request: Request,
+    run_id: Optional[str] = Query(None, description="run_id retourné par POST /api/predict"),
+    current_user: CurrentUser = Depends(require_roles("auditor", "manager", "admin")),
+):
     """
     Explication batch pour un ensemble de tx_ids.
     LIME est désactivé pour des raisons de performance.
     Limite à max_explain transactions (défaut : 20, max : 100).
     """
-    cache = request.app.state.results_cache
-    if not cache:
-        raise HTTPException(
-            status_code=400,
-            detail="Aucune prédiction disponible. Lancez POST /api/predict d'abord.",
-        )
+    cache = _get_cache(request, run_id)
 
     tx_ids = body.tx_ids[: body.max_explain]
     results = []

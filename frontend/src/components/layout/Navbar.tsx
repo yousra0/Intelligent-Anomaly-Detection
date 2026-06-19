@@ -4,7 +4,10 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissions } from "@/lib/hooks/usePermissions";
+import { useTheme } from "@/providers/ThemeProvider";
+import { useLanguage } from "@/lib/i18n/LanguageContext";
 import { ROLE_LABELS_FR } from "@/lib/utils";
+import { Logo } from "@/components/ui/Logo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,132 +17,104 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import {
-  LayoutDashboard,
-  FolderOpen,
-  History,
-  FileText,
-  Users,
-  Settings,
-  ChevronDown,
-  LogOut,
-  User,
-  Bell,
-  Shield,
-} from "lucide-react";
+import { ChevronDown, LogOut, Sun, Moon, Menu, X, Globe } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-}
+import { useState } from "react";
+import type { Locale } from "@/lib/i18n/LanguageContext";
 
 export function Navbar() {
   const { user, logout } = useAuth();
   const { can, role } = usePermissions();
+  const { theme, toggleTheme } = useTheme();
+  const { locale, setLocale, t } = useLanguage();
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     router.push("/login");
   };
 
-  // Build navigation items based on role
-  const navItems: NavItem[] = [
-    { href: "/dashboard", label: "Tableau de bord", icon: LayoutDashboard },
-    { href: "/missions", label: "Missions", icon: FolderOpen },
-    { href: "/history", label: "Historique", icon: History },
-    { href: "/reports", label: "Rapports", icon: FileText },
+  const navItems = [
+    { href: "/dashboard", label: t("nav.dashboard") },
+    { href: "/missions", label: t("nav.missions") },
+    { href: "/history", label: t("nav.history") },
+    { href: "/reports", label: t("nav.reports") },
   ];
 
-  const managerItems: NavItem[] = can("mission.assign")
-    ? [{ href: "/missions", label: "Gestion missions", icon: Shield }]
-    : [];
-
-  const adminItems: NavItem[] = can("admin.users")
-    ? [
-        { href: "/admin/users", label: "Utilisateurs", icon: Users },
-        { href: "/admin/settings", label: "Paramètres", icon: Settings },
-      ]
-    : [];
-
-  const allItems = [...navItems, ...managerItems, ...adminItems];
-
-  // Deduplicate by href
-  const uniqueItems = allItems.filter(
-    (item, idx, arr) => arr.findIndex((x) => x.href === item.href) === idx
-  );
+  if (can("audit.trail")) {
+    navItems.push({ href: "/audit-trail", label: t("nav.auditTrail") });
+  }
+  if (can("admin.users")) {
+    navItems.push({ href: "/admin/users", label: t("nav.admin") });
+  }
 
   const userInitials = user?.name
     ? user.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
-  const roleLabel = role ? ROLE_LABELS_FR[role] : "";
+  const roleLabel = role
+    ? (locale === "fr" ? ROLE_LABELS_FR[role] : t(`role.${role}`))
+    : "";
+
+  const isActive = (href: string) =>
+    href === "/missions" ? pathname.startsWith("/missions") : pathname === href;
+
+  const otherLocale: Locale = locale === "fr" ? "en" : "fr";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-white shadow-sm">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* ── Left: Logo + nav ─────────────────────── */}
-        <div className="flex items-center gap-6">
-          {/* PwC wordmark */}
-          <Link href="/dashboard" className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center justify-center rounded bg-pwc-orange px-2 py-1">
-              <span className="text-xs font-black tracking-tight text-white">PwC</span>
-            </div>
-            <span className="hidden text-sm font-semibold text-gray-700 sm:block">
-              Audit Analytics
-            </span>
-          </Link>
-
-          {/* Navigation links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {uniqueItems.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                item.href === "/missions"
-                  ? pathname.startsWith("/missions")
-                  : pathname === item.href;
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                    isActive
-                      ? "bg-pwc-orange/10 text-pwc-orange"
-                      : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                  )}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {item.label}
-                </Link>
-              );
-            })}
+    <header className="sticky top-0 z-50 border-b bg-[hsl(var(--navbar-bg))] border-[hsl(var(--navbar-border))] shadow-sm">
+      <div className="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
+        {/* Left: Logo + nav */}
+        <div className="flex items-center gap-6 xl:gap-8">
+          <Logo href="/dashboard" size="sm" />
+          <nav className="hidden md:flex items-center gap-0.5" aria-label="Navigation principale">
+            {navItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "rounded-md px-3 py-1.5 text-sm font-medium transition-colors whitespace-nowrap",
+                  isActive(item.href)
+                    ? "bg-pwc-orange/10 text-pwc-orange"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
           </nav>
         </div>
 
-        {/* ── Right: Audit trail + notifications + user ── */}
-        <div className="flex items-center gap-2">
-          {/* Audit trail shortcut */}
-          <Link
-            href="/audit-trail"
-            className={cn(
-              "hidden sm:flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              pathname === "/audit-trail"
-                ? "bg-pwc-orange/10 text-pwc-orange"
-                : "text-gray-600 hover:bg-gray-100"
-            )}
+        {/* Right: language + theme + user */}
+        <div className="flex items-center gap-0.5">
+          {/* Language switcher */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 px-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            onClick={() => setLocale(otherLocale)}
+            aria-label={`Switch to ${otherLocale === "fr" ? "French" : "English"}`}
+            title={t("common.language")}
           >
-            <Shield className="h-3.5 w-3.5" />
-            <span className="hidden lg:block">Piste d'audit</span>
-          </Link>
+            <Globe className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline uppercase">{otherLocale}</span>
+          </Button>
 
-          {/* Notifications bell (placeholder) */}
-          <Button variant="ghost" size="icon" className="relative h-8 w-8">
-            <Bell className="h-4 w-4 text-gray-500" />
+          {/* Theme toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={toggleTheme}
+            aria-label={theme === "dark" ? t("nav.lightMode") : t("nav.darkMode")}
+          >
+            {theme === "dark" ? (
+              <Sun className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Moon className="h-4 w-4 text-muted-foreground" />
+            )}
           </Button>
 
           {/* User dropdown */}
@@ -169,23 +144,19 @@ export function Navbar() {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/missions")}>
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  Mes missions
+                  {t("nav.myMissions")}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/history")}>
-                  <History className="mr-2 h-4 w-4" />
-                  Historique d'analyses
+                  {t("nav.analysisHistory")}
                 </DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/audit-trail")}>
-                  <Shield className="mr-2 h-4 w-4" />
-                  Piste d'audit
+                  {t("nav.auditLog")}
                 </DropdownMenuItem>
                 {can("admin.users") && (
                   <>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer" onClick={() => router.push("/admin/users")}>
-                      <Users className="mr-2 h-4 w-4" />
-                      Gestion utilisateurs
+                      {t("nav.userManagement")}
                     </DropdownMenuItem>
                   </>
                 )}
@@ -195,37 +166,45 @@ export function Navbar() {
                   onClick={handleLogout}
                 >
                   <LogOut className="mr-2 h-4 w-4" />
-                  Se déconnecter
+                  {t("nav.logout")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+
+          {/* Mobile menu toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden h-8 w-8"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Menu"
+          >
+            {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
         </div>
       </div>
 
       {/* Mobile nav */}
-      <nav className="flex items-center gap-1 overflow-x-auto border-t border-border px-4 py-1 md:hidden">
-        {uniqueItems.slice(0, 4).map((item) => {
-          const Icon = item.icon;
-          const isActive =
-            item.href === "/missions"
-              ? pathname.startsWith("/missions")
-              : pathname === item.href;
-          return (
+      {mobileOpen && (
+        <nav className="md:hidden border-t border-[hsl(var(--navbar-border))] bg-[hsl(var(--navbar-bg))] px-4 py-2 flex flex-col gap-1">
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex shrink-0 items-center gap-1 rounded px-2.5 py-1 text-xs font-medium transition-colors",
-                isActive ? "bg-pwc-orange/10 text-pwc-orange" : "text-gray-600 hover:bg-gray-100"
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive(item.href)
+                  ? "bg-pwc-orange/10 text-pwc-orange"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
+              onClick={() => setMobileOpen(false)}
             >
-              <Icon className="h-3 w-3" />
               {item.label}
             </Link>
-          );
-        })}
-      </nav>
+          ))}
+        </nav>
+      )}
     </header>
   );
 }

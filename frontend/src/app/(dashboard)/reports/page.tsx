@@ -7,7 +7,7 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Rapports</h1>
+        <h1 className="text-2xl font-bold text-foreground">Rapports</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
           Accédez aux rapports depuis la page d'analyse d'une mission.
         </p>

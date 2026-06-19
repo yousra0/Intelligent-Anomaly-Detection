@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -23,15 +25,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { missionService } from "@/lib/api/missionService";
 import { userService } from "@/lib/api/userService";
 import { MISSION_TYPE_LABELS_FR } from "@/lib/utils";
-import type { MissionType } from "@/types";
+import type { MissionType, User } from "@/types";
 
 const schema = z
   .object({
-    name: z.string().min(3, "Nom trop court (3 caractères min.)"),
+    name:         z.string().min(3, "Nom trop court (3 caractères min.)"),
     company_name: z.string().min(2, "Société requise"),
     mission_type: z.enum([
       "financial_audit",
@@ -41,9 +43,8 @@ const schema = z
       "internal_audit",
     ]),
     description: z.string().optional(),
-    start_date: z.string().min(1, "Date de début requise"),
-    end_date: z.string().min(1, "Date de fin requise"),
-    assigned_to: z.string().optional(),
+    start_date:  z.string().min(1, "Date de début requise"),
+    end_date:    z.string().min(1, "Date de fin requise"),
   })
   .refine((d) => d.start_date <= d.end_date, {
     message: "La date de fin doit être après le début",
@@ -59,11 +60,12 @@ interface CreateMissionModalProps {
 
 export function CreateMissionModal({ open, onClose }: CreateMissionModalProps) {
   const queryClient = useQueryClient();
+  const [selectedAuditors, setSelectedAuditors] = useState<User[]>([]);
 
   const { data: auditors = [] } = useQuery({
     queryKey: ["users", "auditors"],
-    queryFn: userService.getAuditors,
-    enabled: open,
+    queryFn:  userService.getAuditors,
+    enabled:  open,
   });
 
   const {
@@ -83,6 +85,7 @@ export function CreateMissionModal({ open, onClose }: CreateMissionModalProps) {
       queryClient.invalidateQueries({ queryKey: ["missions"] });
       toast.success("Mission créée avec succès.");
       reset();
+      setSelectedAuditors([]);
       onClose();
     },
     onError: () => {
@@ -90,10 +93,36 @@ export function CreateMissionModal({ open, onClose }: CreateMissionModalProps) {
     },
   });
 
-  const onSubmit = (values: FormValues) => mutation.mutate(values);
+  const onSubmit = (values: FormValues) =>
+    mutation.mutate({
+      ...values,
+      assigned_to:       selectedAuditors[0]?.id,
+      assigned_auditors: selectedAuditors.map((a) => a.id),
+    });
+
+  const handleClose = () => {
+    reset();
+    setSelectedAuditors([]);
+    onClose();
+  };
+
+  const addAuditor = (id: string) => {
+    const auditor = auditors.find((a) => a.id === id);
+    if (auditor && !selectedAuditors.find((a) => a.id === id)) {
+      setSelectedAuditors((prev) => [...prev, auditor]);
+    }
+  };
+
+  const removeAuditor = (id: string) => {
+    setSelectedAuditors((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  const availableAuditors = auditors.filter(
+    (a) => !selectedAuditors.find((s) => s.id === a.id)
+  );
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Créer une nouvelle mission</DialogTitle>
@@ -139,22 +168,50 @@ export function CreateMissionModal({ open, onClose }: CreateMissionModalProps) {
             )}
           </div>
 
-          {/* Assigned Auditor */}
+          {/* Multi-auditor assignment */}
           <div className="space-y-1.5">
-            <Label>Auditeur assigné</Label>
-            <Select onValueChange={(v) => setValue("assigned_to", v === "none" ? undefined : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Sélectionner un auditeur" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">— Non assigné —</SelectItem>
-                {auditors.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.name} ({a.email})
-                  </SelectItem>
+            <Label>Auditeurs assignés</Label>
+
+            {/* Selected auditor badges */}
+            {selectedAuditors.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 rounded-md border border-border bg-muted/30 p-2">
+                {selectedAuditors.map((a) => (
+                  <Badge key={a.id} variant="secondary" className="gap-1 pr-1">
+                    {a.name}
+                    <button
+                      type="button"
+                      onClick={() => removeAuditor(a.id)}
+                      className="ml-0.5 rounded-full hover:bg-muted-foreground/20"
+                      aria-label={`Retirer ${a.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
                 ))}
-              </SelectContent>
-            </Select>
+              </div>
+            )}
+
+            {/* Add auditor dropdown */}
+            {availableAuditors.length > 0 && (
+              <Select onValueChange={addAuditor} value="">
+                <SelectTrigger>
+                  <SelectValue placeholder="Ajouter un auditeur…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAuditors.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name} — {a.position ?? a.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {selectedAuditors.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Aucun auditeur assigné. La mission sera non assignée.
+              </p>
+            )}
           </div>
 
           {/* Dates */}
@@ -187,7 +244,7 @@ export function CreateMissionModal({ open, onClose }: CreateMissionModalProps) {
           </div>
 
           <DialogFooter className="pt-2">
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={handleClose}>
               Annuler
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
