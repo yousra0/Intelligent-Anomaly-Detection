@@ -1,4 +1,4 @@
-%% ============================================================
+pi%% ============================================================
 %%  rapport_pfe_final.tex  —  Rapport PFE complet (10 chapitres)
 %%  Étudiant : Yousra Chaieb — ESPRIT 2025/2026
 %%  Compilez avec : pdflatex > pdflatex
@@ -2012,8 +2012,7 @@ d'importance SHAP globale (valeur absolue moyenne), sont :
   \item \texttt{is\_transfer\_or\_cashout} — Type de transaction \\
   \item \texttt{high\_risk\_hour} — Heures nocturnes \\
   \item \texttt{log\_amount} — Montant élevé \\
-  \item \texttt{type\_TRANSFER} \\
-  \item \texttt{type\_CASH\_OUT}
+  \item \texttt{type\_TRANSFER} \  \item \texttt{type\_CASH\_OUT}
 \end{enumerate}
 
 \section{Explicabilité locale — LIME}
@@ -2817,8 +2816,7 @@ représente une évolution naturelle du module LLM actuel :
   arrow/.style={->,>=stealth,thick}
 ]
   \node[stage,fill=blue!15] (train) at (0,0) {Entraînement\\MLflow};
-  \node[stage,fill=green!15] (valid) at (3.5,0) {Validation\\Tests auto};
-  \node[stage,fill=pwcorange!20] (deploy) at (7,0) {Déploiement\\Blue/Green};
+  \node[stage,fill=green!15] (valid) at (3.5,0) {Validation\\Tests auto};  \node[stage,fill=pwcorange!20] (deploy) at (7,0) {Déploiement\\Blue/Green};
   \node[stage,fill=red!15] (monitor) at (10.5,0) {Monitoring\\Dérive};
   \node[stage,fill=gray!15] (retrain) at (5.25,-2) {Ré-entraînement};
   \draw[arrow] (train) -- (valid);

@@ -1,3 +1,14 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js"
+  "/api/auth/logout/route": "app/api/auth/logout/route.js",
+  "/api/missions/[id]/route": "app/api/missions/[id]/route.js",
+  "/api/missions/[id]/datasets/route": "app/api/missions/[id]/datasets/route.js",
+  "/api/audit-logs/route": "app/api/audit-logs/route.js",
+  "/api/analysis-runs/route": "app/api/analysis-runs/route.js",
+  "/api/missions/route": "app/api/missions/route.js",
+  "/(dashboard)/audit-trail/page": "app/(dashboard)/audit-trail/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(dashboard)/admin/users/page": "app/(dashboard)/admin/users/page.js",
+  "/(dashboard)/missions/page": "app/(dashboard)/missions/page.js",
+  "/(dashboard)/missions/[id]/page": "app/(dashboard)/missions/[id]/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js"
 }
